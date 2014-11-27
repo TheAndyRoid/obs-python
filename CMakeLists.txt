@@ -6,7 +6,9 @@ include_directories(${PYTHON_INCLUDE_DIRS})
 
 set(obs-python_SOURCES
 	obs-python-module.c
-	obs-python-source.c)
+	obs-python-source.c
+	py-source.h
+	py-obs.h)
 
 add_library(obs-python MODULE
 	${obs-python_SOURCES})
