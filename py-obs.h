@@ -18,7 +18,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 #include <Python.h>
 #include "py-source.h"
-
+#include "graphics/py-graphics.h"
 
 
 
@@ -83,9 +83,12 @@ py_obs_register_source(PyObject* self, PyObject* args)
 
 
 
+
+
 static PyMethodDef py_obs_methods[] = {
     {"log",py_obs_log,METH_VARARGS,"Writes to the obs log"},
     {"obs_register_source",py_obs_register_source,METH_VARARGS,"Registers a new source with obs."},
+    GS_FUNCTIONS
     { NULL, NULL, 0, NULL }
 };
 

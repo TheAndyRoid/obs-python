@@ -239,8 +239,6 @@ void obs_module_unload()
 }
 static const char* python_source_get_name(void)
 {
-    blog(LOG_INFO, "python_source_get_name");
-    blog(LOG_INFO, "ADDRESS %p", __builtin_return_address (0));
     return obs_module_text("PythonManager" );
 }
 static void* python_source_create(obs_data_t* settings, obs_source_t* source)
