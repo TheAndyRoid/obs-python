@@ -697,10 +697,11 @@ static void py_source_video_render(void* data, gs_effect_t* effect)
         PyGILState_Release(gstate);
         return ;
     }
-
-    PyObject* argList = Py_BuildValue("(O)",py_data);
+    PyObject* p_effect = (long)effect;
+    PyObject* argList = Py_BuildValue("(Ol)",py_data,p_effect);
     PyObject_CallObject(py_src->video_render,argList);
     Py_XDECREF(argList);
+    Py_XDECREF(effect);
 
 
     PyGILState_Release(gstate);
