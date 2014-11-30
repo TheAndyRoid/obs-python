@@ -1,4 +1,5 @@
 import OBS
+import os
 from random import randint
 
 
@@ -7,8 +8,8 @@ from random import randint
 class MySource():
     def __init__(self):
         super()
-        self.width = 1
-        self.height = 1
+        self.width = 500
+        self.height = 500
         self.bpp = 4
         self.pixelbuffer = bytearray(self.width*self.height*self.bpp)
         self.SetColour(255,255,255,255)
@@ -63,6 +64,7 @@ class MySource():
 
 
 def register():
+    print(os.getcwd())
     src = OBS.Source()
     src.create = MySource.create
     src.video_render = MySource.render

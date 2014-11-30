@@ -114,6 +114,7 @@ bool obs_module_load()
     blog(LOG_INFO, "obs_module_load");
     //Need to init python here
 
+
     //Load the OBS Extension
     PyImport_AppendInittab("OBS", py_obs_init);
 
@@ -147,12 +148,18 @@ bool obs_module_load()
     
 
     char* cName = "source";
-    char* cPath = "/home/andyroid/git/obs-studio/plugins/obs-python/data/scripts/";
     pName = PyUnicode_FromString(cName);
 
-    //Add the path to env
-    add_to_python_path(cPath);
+    char script[] = "/scripts";
+    char *data_path = obs_get_module_data_path(obs_current_module());
+    char *scripts_path = bzalloc(strlen(data_path)+strlen(script));
+    strcpy(scripts_path,data_path);
+    strcat(scripts_path,script);
 
+
+    //Add the path to env
+    add_to_python_path(scripts_path);
+    bfree(scripts_path);
     //import the module
     pModule = PyImport_Import(pName);
     //get the function by name
@@ -200,6 +207,8 @@ bool obs_module_load()
 
     PyThreadState* pts = PyGILState_GetThisThreadState();
     PyEval_ReleaseThread(pts);
+
+
 
 
     return true;

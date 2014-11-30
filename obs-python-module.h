@@ -69,6 +69,10 @@ static const char* python_source_get_name(void);
 
 OBS_DECLARE_MODULE()
 OBS_MODULE_USE_DEFAULT_LOCALE("obs-python", "en-US")
+OBS_MODULE_AUTHOR("Andrew Skinner")
+                                 
+
+
 
 
 static struct obs_source_info python_source_info = {
