@@ -23,6 +23,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 #include <obs-module.h>
 #include <obs-internal.h>
 #include "../obs-python-module.h"
+#include <graphics/graphics.h>
 
 
 //Function table for OBS module
@@ -187,7 +188,7 @@ py_gs_texture_create(PyObject* self, PyObject* args)
     return PyLong_FromLong((long)tex);
 
 }
-
+ 
 static PyObject*
 py_gs_texture_destroy(PyObject* self, PyObject* args)
 {
@@ -202,6 +203,7 @@ py_gs_texture_destroy(PyObject* self, PyObject* args)
 
     gs_texture_t* tex = (gs_texture_t*)addr;
 
+
     gs_texture_destroy(tex);
 
     Py_RETURN_NONE;
@@ -209,10 +211,31 @@ py_gs_texture_destroy(PyObject* self, PyObject* args)
 
 
 
+static void py_gs_setup_defines(PyObject *module){
+
+   blog(LOG_INFO,"%l",2);
+
+
+  PyModule_AddIntConstant(module,"GS_DEVICE_OPENGL",GS_DEVICE_OPENGL);
+  PyModule_AddIntConstant(module,"GS_DEVICE_DIRECT3D_11",GS_DEVICE_DIRECT3D_11);
+
+ 
+  PyModule_AddIntConstant(module,"GS_BUILD_MIPMAPS",GS_BUILD_MIPMAPS );
+  PyModule_AddIntConstant(module,"GS_DYNAMIC", GS_DYNAMIC );
+  PyModule_AddIntConstant(module,"GS_RENDER_TARGET",GS_RENDER_TARGET );
+  PyModule_AddIntConstant(module,"GS_GL_DUMMYTEX",GS_GL_DUMMYTEX);
+  PyModule_AddIntConstant(module,"GS_FLIP_U",GS_FLIP_U);
+  PyModule_AddIntConstant(module,"GS_FLIP_V",GS_FLIP_V);
+
+  PyModule_AddIntConstant(module,"GS_CLEAR_COLOR",GS_CLEAR_COLOR);
+  PyModule_AddIntConstant(module,"GS_CLEAR_DEPTH",GS_CLEAR_DEPTH);
+  PyModule_AddIntConstant(module,"GS_CLEAR_STENCIL",GS_CLEAR_STENCIL);
+
+}
 
 
 
 
 
 
-
+  

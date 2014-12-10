@@ -133,10 +133,26 @@ bool obs_module_load()
 
     PyRun_SimpleString("import sys");
     PyRun_SimpleString("import os");
-    PyRun_SimpleString("import OBS");
     PyRun_SimpleString("os.environ['PYTHONUNBUFFERED'] = '1'");
     PyRun_SimpleString("sys.stdout = open('/dev/shm/stdOut.txt','w',1)");
     PyRun_SimpleString("sys.stderr = open('/dev/shm/stdErr.txt','w',1)");
+    PyRun_SimpleString("import OBS");
+
+
+
+    /*Load types*/
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -147,8 +163,8 @@ bool obs_module_load()
     PyObject* pName, *pModule, *pFunc,*argList;
     
 
-    char* cName = "source";
-    pName = PyUnicode_FromString(cName);
+
+    pName = PyUnicode_FromString("source");
 
     char script[] = "/scripts";
     char *data_path = obs_get_module_data_path(obs_current_module());
@@ -168,6 +184,7 @@ bool obs_module_load()
         if(pFunc != NULL) {
 	  argList = Py_BuildValue("()");
             PyObject_CallObject(pFunc,argList);
+	     pyHasError();
 	    Py_XDECREF(pFunc);
 	    Py_XDECREF(argList);
         }

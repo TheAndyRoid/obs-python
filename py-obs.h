@@ -19,7 +19,8 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 #include <Python.h>
 #include "py-source.h"
 #include "graphics/py-graphics.h"
-
+#include "types/gs_draw_mode.h"
+#include "types/gs_color_format.h"
 
 
 
@@ -59,7 +60,7 @@ py_obs_register_source(PyObject* self, PyObject* args)
     if (!PyArg_ParseTuple(args, "O", &obj)) {
         return NULL;
     }
-
+    
      if (!PyObject_TypeCheck(obj,&py_source_type)) {
         PyErr_SetString(PyExc_TypeError, "Object is not OBS.Source or subclass of OBS.Source");
         return NULL;
@@ -137,6 +138,16 @@ static struct PyModuleDef moduledef = {
     NULL
 };
 
+
+
+void py_obs_setup_defines(PyObject *module){
+  py_gs_setup_defines(module);
+
+}
+
+
+
+
 #define INITERROR return NULL
 
 PyMODINIT_FUNC
@@ -149,12 +160,41 @@ py_obs_init(void)
     if (m == NULL)
         INITERROR;
 
+
+
+
+
     if (PyType_Ready(&py_source_type) < 0) {
         INITERROR;
     }
     Py_INCREF(&py_source_type);
     PyModule_AddObject(m, "Source", (PyObject*)&py_source_type);
+    
+
+    
+
+    /*Enums types*/    
+     
+    if (py_gs_draw_mode_init_type(&py_gs_draw_mode_type)+ PyType_Ready(&py_gs_draw_mode_type) < 0) {
+       INITERROR;
+    }
+    Py_INCREF(&py_gs_draw_mode_type);
+    PyModule_AddObject(m, "gs_draw_mode", (PyObject*)&py_gs_draw_mode_type);
+
+    if (py_gs_color_format_init_type(&py_gs_color_format_type)+ PyType_Ready(&py_gs_color_format_type) < 0) {
+       INITERROR;
+    }
+    Py_INCREF(&py_gs_color_format_type);
+    PyModule_AddObject(m, "gs_color_format", (PyObject*)&py_gs_color_format_type);
+    
+
+
+
+    py_obs_setup_defines(m);
 
     return m;
 
 }
+
+
+

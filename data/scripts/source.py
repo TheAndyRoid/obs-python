@@ -4,12 +4,11 @@ from random import randint
 
 
 
-
 class MySource():
     def __init__(self):
         super()
-        self.width = 500
-        self.height = 500
+        self.width = 100
+        self.height = 100
         self.bpp = 4
         self.pixelbuffer = bytearray(self.width*self.height*self.bpp)
         self.SetColour(255,255,255,255)
@@ -18,10 +17,11 @@ class MySource():
         FLAGS = 1<<1
         OBS.obs_enter_graphics()
         self.tex = OBS.gs_texture_create(self.width,
-                                    self.height,
-                                    GS_BGRA,LEVELS,
-                                    self.pixelbuffer,
-                                    FLAGS)
+                                         self.height,
+                                         OBS.gs_color_format.GS_BGRA,
+                                         LEVELS,
+                                         self.pixelbuffer,
+                                         OBS.GS_DYNAMIC)
         OBS.obs_leave_graphics()
         print (self.tex)
     @staticmethod
@@ -73,5 +73,7 @@ def register():
     src.get_width = MySource.get_width
     src.destroy = MySource.destroy
     OBS.obs_register_source(src)
+    print(OBS.GS_DYNAMIC)
+    print(OBS.GS_BUILD_MIPMAPS)
     print ("Registered MySource")
 

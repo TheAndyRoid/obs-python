@@ -60,19 +60,32 @@ static bool isPyObjectBaseClass(PyObject* obj, const char* type )
 }
 
 
-static void add_to_python_path(char *cstr)
+static void add_to_python_path(char* cstr)
 {
     //make sure that sys is imported
     PyRun_SimpleString("import sys");
     PyObject* path = PySys_GetObject("path");
+    pyHasError();
 
-
-    while(strstr(cstr,"\\") != NULL){
-      char *c = strstr(cstr,"\\") ;
-      c = "/";      
+    while(strstr(cstr,"\\") != NULL) {
+        char* c = strstr(cstr,"\\") ;
+        c = "/";
     }
-    blog(LOG_INFO, "%s",cstr);
+    blog(LOG_INFO, "PATH: %s",cstr);
     PyList_Append(path, PyUnicode_FromString(cstr));
-    //Log(TEXT("%ws"), dir);
-        return;
+    pyHasError();
+
+    return;
 }
+
+
+static void add_enum_to_dict(PyObject *tp_dict, char ** names){
+  int i = 0;
+    while(names[i] != NULL){
+      PyDict_SetItemString(tp_dict,names[i],PyLong_FromLong(i));
+      i++;
+    }
+
+}
+
+

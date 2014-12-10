@@ -15,13 +15,14 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 ********************************************************************************/
-#pragma once
+#pragma once 
 
 
 #include <Python.h>
 #include <structmember.h>
 #include <obs-module.h>
 #include <obs-internal.h>
+#include "utils.h"
 #include "obs-python-module.h"
 
 //Similar to libobs/source.h
@@ -284,6 +285,7 @@ static PyObject* py_source_new(PyTypeObject* type, PyObject* args, PyObject* kwd
 
     self->py_source_info = bzalloc(sizeof(struct obs_source_info));
     return (PyObject*)self;
+
 }
 
 static int
@@ -400,15 +402,16 @@ static void* py_source_create(obs_data_t* settings, obs_source_t* source)
 
     PyObject* argList = Py_BuildValue("(OO)",py_settings,py_source);
     PyObject* data= PyObject_CallObject(py_src->create,argList);
+    struct python_data_pair* py_data = NULL;
+    if(!pyHasError()) {
+        py_data = bzalloc(sizeof(struct python_data_pair));
+        py_data->data = data;
+        py_data->source = py_src;
 
-
-    struct python_data_pair* py_data = bzalloc(sizeof(struct python_data_pair));
-    py_data->data = data;
-    py_data->source = py_src;
-
+    }
     Py_XDECREF(argList);
-    Py_XDECREF(py_settings);  
-    Py_XDECREF(py_source);  
+    Py_XDECREF(py_settings);
+    Py_XDECREF(py_source);
 
     PyGILState_Release(gstate);
     blog(LOG_INFO, "Python Create: %s",id);
@@ -435,6 +438,7 @@ static void py_source_destroy(void* data)
     PyObject_CallObject(py_src->destroy,argList);
     Py_XDECREF(argList);
     Py_XDECREF(py_data);
+    pyHasError();
 
     PyGILState_Release(gstate);
 
@@ -461,7 +465,9 @@ static uint32_t py_source_get_width(void* data)
 
     PyObject* argList = Py_BuildValue("(O)",py_data);
     PyObject* ret = PyObject_CallObject(py_src->get_width,argList);
-    long width;
+
+    long width = 0;
+    pyHasError();
     if(PyLong_Check(ret)) {
         width = PyLong_AsLong(ret);
     }
@@ -492,8 +498,8 @@ static uint32_t py_source_get_height(void* data)
 
     PyObject* argList = Py_BuildValue("(O)",py_data);
     PyObject* ret = PyObject_CallObject(py_src->get_height,argList);
-    long height = 10;
-
+    long height = 0 ;
+    pyHasError();
     if(PyLong_Check(ret)) {
         height = PyLong_AsLong(ret);
     }
@@ -523,6 +529,7 @@ static obs_properties_t* py_source_properties(void* data)
 
     PyObject* argList = Py_BuildValue("(O)",py_data);
     PyObject_CallObject(py_src->get_properties,argList);
+    pyHasError();
     Py_XDECREF(argList);
 
 
@@ -551,6 +558,7 @@ static void py_source_update(void* data, obs_data_t* settings)
 
     PyObject* argList = Py_BuildValue("(O)",py_data);
     PyObject_CallObject(py_src->update,argList);
+    pyHasError();
     Py_XDECREF(argList);
 
 
@@ -576,6 +584,7 @@ static void py_source_activate(void* data)
 
     PyObject* argList = Py_BuildValue("(O)",py_data);
     PyObject_CallObject(py_src->activate,argList);
+    pyHasError();
     Py_XDECREF(argList);
 
 
@@ -601,6 +610,7 @@ static void py_source_deactivate(void* data)
 
     PyObject* argList = Py_BuildValue("(O)",py_data);
     PyObject_CallObject(py_src->deactivate,argList);
+    pyHasError();
     Py_XDECREF(argList);
 
 
@@ -626,6 +636,7 @@ static void py_source_show(void* data)
 
     PyObject* argList = Py_BuildValue("(O)",py_data);
     PyObject_CallObject(py_src->show,argList);
+    pyHasError();
     Py_XDECREF(argList);
 
 
@@ -651,6 +662,7 @@ static void py_source_hide(void* data)
 
     PyObject* argList = Py_BuildValue("(O)",py_data);
     PyObject_CallObject(py_src->hide,argList);
+    pyHasError();
     Py_XDECREF(argList);
 
 
@@ -675,6 +687,7 @@ static void py_source_video_tick(void* data, float seconds)
 
     PyObject* argList = Py_BuildValue("(O)",py_data);
     PyObject_CallObject(py_src->video_tick,argList);
+    pyHasError();
     Py_XDECREF(argList);
 
 
@@ -700,6 +713,7 @@ static void py_source_video_render(void* data, gs_effect_t* effect)
     PyObject* p_effect = (long)effect;
     PyObject* argList = Py_BuildValue("(Ol)",py_data,p_effect);
     PyObject_CallObject(py_src->video_render,argList);
+    pyHasError();
     Py_XDECREF(argList);
     Py_XDECREF(effect);
 
@@ -726,6 +740,7 @@ static struct obs_source_frame* py_source_filter_video(void* data, const struct 
 
     PyObject* argList = Py_BuildValue("(O)",py_data);
     PyObject_CallObject(py_src->filter_video,argList);
+    pyHasError();
     Py_XDECREF(argList);
 
 
@@ -751,6 +766,7 @@ static struct obs_audio_data* py_source_filter_audio(void* data, const struct ob
 
     PyObject* argList = Py_BuildValue("(O)",py_data);
     PyObject_CallObject(py_src->filter_audio,argList);
+    pyHasError();
     Py_XDECREF(argList);
 
 
@@ -776,6 +792,7 @@ static void py_source_enum_sources(void* data, obs_source_enum_proc_t enum_callb
 
     PyObject* argList = Py_BuildValue("(O)",py_data);
     PyObject_CallObject(py_src->enum_sources,argList);
+    pyHasError();
     Py_XDECREF(argList);
 
 
@@ -801,6 +818,7 @@ static void py_source_save(void* data,obs_data_t* settings)
 
     PyObject* argList = Py_BuildValue("(O)",py_data);
     PyObject_CallObject(py_src->save,argList);
+    pyHasError();
     Py_XDECREF(argList);
 
 
@@ -825,6 +843,7 @@ static void py_source_load(void* data,obs_data_t* settings)
 
     PyObject* argList = Py_BuildValue("(O)",py_data);
     PyObject_CallObject(py_src->load,argList);
+    pyHasError();
     Py_XDECREF(argList);
 
 
@@ -850,6 +869,7 @@ static void py_source_mouse_click(void* data,const struct obs_mouse_event* event
 
     PyObject* argList = Py_BuildValue("(O)",py_data);
     PyObject_CallObject(py_src->mouse_click,argList);
+    pyHasError();
     Py_XDECREF(argList);
 
 
@@ -874,6 +894,7 @@ static void py_source_mouse_move(void* data,const struct obs_mouse_event* event,
 
     PyObject* argList = Py_BuildValue("(O)",py_data);
     PyObject_CallObject(py_src->create,argList);
+    pyHasError();
     Py_XDECREF(argList);
 
 
@@ -897,6 +918,7 @@ static void py_source_mouse_wheel(void* data,const struct obs_mouse_event* event
 
     PyObject* argList = Py_BuildValue("(O)",py_data);
     PyObject_CallObject(py_src->mouse_wheel,argList);
+    pyHasError();
     Py_XDECREF(argList);
 
     PyGILState_Release(gstate);
@@ -920,6 +942,7 @@ static void py_source_focus(void* data,bool focus)
 
     PyObject* argList = Py_BuildValue("(O)",py_data);
     PyObject_CallObject(py_src->focus,argList);
+    pyHasError();
     Py_XDECREF(argList);
 
     PyGILState_Release(gstate);
@@ -943,6 +966,7 @@ static void py_source_key_click(void* data,const struct obs_key_event* event,boo
 
     PyObject* argList = Py_BuildValue("(O)",py_data);
     PyObject_CallObject(py_src->key_click,argList);
+    pyHasError();
     Py_XDECREF(argList);
 
     PyGILState_Release(gstate);
