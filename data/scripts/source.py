@@ -15,6 +15,8 @@ class MySource():
         GS_BGRA = 5
         LEVELS =1  
         FLAGS = 1<<1
+        a = OBS.gs_texture_t()
+        print(type(a))
         OBS.obs_enter_graphics()
         self.tex = OBS.gs_texture_create(self.width,
                                          self.height,

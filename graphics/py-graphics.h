@@ -23,6 +23,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 #include <obs-module.h>
 #include <obs-internal.h>
 #include "../obs-python-module.h"
+#include "py_gs_texture_t.h"
 #include <graphics/graphics.h>
 
 
@@ -45,18 +46,19 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 static PyObject*
 py_gs_texture_set_image(PyObject* self, PyObject* args)
 {
-  
 
-  long linesize,p_tex,invert;
-  PyObject *byte_array;
 
-  if (!PyArg_ParseTuple(args, "lOlp", &p_tex,&byte_array,&linesize,&invert)) {
+    long linesize,invert;
+    PyObject* byte_array;
+    py_gs_texture_t*  py_tex;
+
+    if (!PyArg_ParseTuple(args, "OOlp", &py_tex,&byte_array,&linesize,&invert)) {
         return NULL;
     }
 
-    char *addr = PyByteArray_AsString(byte_array);
-    gs_texture_t* tex = (gs_texture_t*)p_tex;
-    
+    char* addr = PyByteArray_AsString(byte_array);
+    gs_texture_t* tex = py_tex->tex;
+
     gs_texture_set_image(tex,addr,linesize,invert);
 
     Py_RETURN_NONE;
@@ -66,16 +68,16 @@ py_gs_texture_set_image(PyObject* self, PyObject* args)
 static PyObject*
 py_gs_effect_set_texture(PyObject* self, PyObject* args)
 {
-  
 
-    long p_param,p_tex;
+    py_gs_texture_t* py_tex;
+    long p_param;
 
-    if (!PyArg_ParseTuple(args, "ll", &p_param,&p_tex)) {
+    if (!PyArg_ParseTuple(args, "lO", &p_param,&py_tex)) {
         return NULL;
     }
 
 
-    gs_texture_t* tex = (gs_texture_t*)p_tex;
+    gs_texture_t* tex = py_tex->tex;
     gs_eparam_t* param = (gs_effect_t*)p_param;
     gs_effect_set_texture(param,tex);
 
@@ -90,14 +92,14 @@ py_gs_effect_get_param_by_name(PyObject* self, PyObject* args)
 {
 
     long p_effect;
-    PyObject *py_name;
+    PyObject* py_name;
     if (!PyArg_ParseTuple(args, "lU", &p_effect,&py_name)) {
         return NULL;
     }
 
     gs_effect_t* effect = (gs_effect_t*)p_effect;
     long p_param = (long)gs_effect_get_param_by_name(effect,PyUnicode_AsUTF8(py_name));
-    PyObject *ret = PyLong_FromLong(p_param);
+    PyObject* ret = PyLong_FromLong(p_param);
     return ret;
 
 }
@@ -107,8 +109,7 @@ py_gs_effect_get_param_by_name(PyObject* self, PyObject* args)
 static PyObject*
 py_gs_reset_blend_state(PyObject* self, PyObject* args)
 {
-
-  gs_reset_blend_state();
+    gs_reset_blend_state();
     Py_RETURN_NONE;
 }
 
@@ -121,21 +122,22 @@ static PyObject*
 py_gs_draw_sprite(PyObject* self, PyObject* args)
 {
 
-    long addr,flip,width,height;
+    py_gs_texture_t* py_tex;
+    long flip,width,height;
 
-    if (!PyArg_ParseTuple(args, "llll", &addr,&flip,&width,&height)) {
+    if (!PyArg_ParseTuple(args, "Olll", &py_tex,&flip,&width,&height)) {
         return NULL;
     }
 
-    //convert to a correct pointer
-
-    gs_texture_t* tex = (gs_texture_t*)addr;
+    // TODO type check
 
 
-    gs_draw_sprite(tex,flip,width,height);
-
+    if(py_tex->tex) {
+        gs_draw_sprite(py_tex->tex,flip,width,height);
+    }
 
     Py_RETURN_NONE;
+
 }
 
 
@@ -185,51 +187,57 @@ py_gs_texture_create(PyObject* self, PyObject* args)
 
     gs_texture_t* tex = gs_texture_create(cx,cy,color_format,levels,(const uint8_t**)&addr,flags);
 
-    return PyLong_FromLong((long)tex);
+    PyObject* py_tex_args = Py_BuildValue("()");
+    py_gs_texture_t* py_tex =  PyObject_CallObject((PyObject*)&py_gs_texture_t_type,py_tex_args);
+    py_tex->tex = tex;
+    Py_DECREF(py_tex_args);
+
+
+    return py_tex;
 
 }
- 
+
 static PyObject*
 py_gs_texture_destroy(PyObject* self, PyObject* args)
 {
 
-    long addr;
+    py_gs_texture_t* py_tex;
 
-    if (!PyArg_ParseTuple(args, "l", &addr)) {
+    if (!PyArg_ParseTuple(args, "O", &py_tex)) {
         return NULL;
     }
 
-    //convert to a correct pointer
+    //TODO check type
 
-    gs_texture_t* tex = (gs_texture_t*)addr;
+    gs_texture_destroy(py_tex->tex);
 
-
-    gs_texture_destroy(tex);
+    py_tex->tex = NULL;
 
     Py_RETURN_NONE;
 }
 
 
 
-static void py_gs_setup_defines(PyObject *module){
+static void py_gs_setup_defines(PyObject* module)
+{
 
-   blog(LOG_INFO,"%l",2);
+    blog(LOG_INFO,"%l",2);
 
 
-  PyModule_AddIntConstant(module,"GS_DEVICE_OPENGL",GS_DEVICE_OPENGL);
-  PyModule_AddIntConstant(module,"GS_DEVICE_DIRECT3D_11",GS_DEVICE_DIRECT3D_11);
+    PyModule_AddIntConstant(module,"GS_DEVICE_OPENGL",GS_DEVICE_OPENGL);
+    PyModule_AddIntConstant(module,"GS_DEVICE_DIRECT3D_11",GS_DEVICE_DIRECT3D_11);
 
- 
-  PyModule_AddIntConstant(module,"GS_BUILD_MIPMAPS",GS_BUILD_MIPMAPS );
-  PyModule_AddIntConstant(module,"GS_DYNAMIC", GS_DYNAMIC );
-  PyModule_AddIntConstant(module,"GS_RENDER_TARGET",GS_RENDER_TARGET );
-  PyModule_AddIntConstant(module,"GS_GL_DUMMYTEX",GS_GL_DUMMYTEX);
-  PyModule_AddIntConstant(module,"GS_FLIP_U",GS_FLIP_U);
-  PyModule_AddIntConstant(module,"GS_FLIP_V",GS_FLIP_V);
 
-  PyModule_AddIntConstant(module,"GS_CLEAR_COLOR",GS_CLEAR_COLOR);
-  PyModule_AddIntConstant(module,"GS_CLEAR_DEPTH",GS_CLEAR_DEPTH);
-  PyModule_AddIntConstant(module,"GS_CLEAR_STENCIL",GS_CLEAR_STENCIL);
+    PyModule_AddIntConstant(module,"GS_BUILD_MIPMAPS",GS_BUILD_MIPMAPS );
+    PyModule_AddIntConstant(module,"GS_DYNAMIC", GS_DYNAMIC );
+    PyModule_AddIntConstant(module,"GS_RENDER_TARGET",GS_RENDER_TARGET );
+    PyModule_AddIntConstant(module,"GS_GL_DUMMYTEX",GS_GL_DUMMYTEX);
+    PyModule_AddIntConstant(module,"GS_FLIP_U",GS_FLIP_U);
+    PyModule_AddIntConstant(module,"GS_FLIP_V",GS_FLIP_V);
+
+    PyModule_AddIntConstant(module,"GS_CLEAR_COLOR",GS_CLEAR_COLOR);
+    PyModule_AddIntConstant(module,"GS_CLEAR_DEPTH",GS_CLEAR_DEPTH);
+    PyModule_AddIntConstant(module,"GS_CLEAR_STENCIL",GS_CLEAR_STENCIL);
 
 }
 
@@ -238,4 +246,4 @@ static void py_gs_setup_defines(PyObject *module){
 
 
 
-  
+

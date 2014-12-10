@@ -169,6 +169,14 @@ py_obs_init(void)
     }
     Py_INCREF(&py_source_type);
     PyModule_AddObject(m, "Source", (PyObject*)&py_source_type);
+
+
+
+    if (PyType_Ready(&py_gs_texture_t_type) < 0) {
+        INITERROR;
+    }
+    Py_INCREF(&py_gs_texture_t_type);
+    PyModule_AddObject(m, "gs_texture_t", (PyObject*)&py_gs_texture_t_type);
     
 
     
