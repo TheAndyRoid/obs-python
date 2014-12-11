@@ -24,6 +24,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 #include <obs-internal.h>
 #include "../obs-python-module.h"
 #include "py_gs_texture_t.h"
+#include "py_gs_eparam_t.h"
 #include <graphics/graphics.h>
 
 
@@ -57,9 +58,12 @@ py_gs_texture_set_image(PyObject* self, PyObject* args)
     }
 
     char* addr = PyByteArray_AsString(byte_array);
-    gs_texture_t* tex = py_tex->tex;
+    
+    if(!py_gs_texture_t_valid_check(py_tex)){
+	return NULL;
+    }
 
-    gs_texture_set_image(tex,addr,linesize,invert);
+    gs_texture_set_image(py_tex->p,addr,linesize,invert);
 
     Py_RETURN_NONE;
 }
@@ -70,16 +74,16 @@ py_gs_effect_set_texture(PyObject* self, PyObject* args)
 {
 
     py_gs_texture_t* py_tex;
-    long p_param;
+    py_gs_eparam_t*  py_param;
 
-    if (!PyArg_ParseTuple(args, "lO", &p_param,&py_tex)) {
+    if (!PyArg_ParseTuple(args, "OO", &py_param,&py_tex)) {
         return NULL;
     }
-
-
-    gs_texture_t* tex = py_tex->tex;
-    gs_eparam_t* param = (gs_effect_t*)p_param;
-    gs_effect_set_texture(param,tex);
+    if(!py_gs_texture_t_valid_check(py_tex) || !py_gs_eparam_t_valid_check(py_param)){
+	return NULL;
+    }
+    
+    gs_effect_set_texture(py_param->p,py_tex->p);
 
     Py_RETURN_NONE;
 }
@@ -98,9 +102,9 @@ py_gs_effect_get_param_by_name(PyObject* self, PyObject* args)
     }
 
     gs_effect_t* effect = (gs_effect_t*)p_effect;
-    long p_param = (long)gs_effect_get_param_by_name(effect,PyUnicode_AsUTF8(py_name));
-    PyObject* ret = PyLong_FromLong(p_param);
-    return ret;
+    gs_eparam_t* eparam = gs_effect_get_param_by_name(effect,PyUnicode_AsUTF8(py_name));
+   
+    return  py_gs_eparam_t_create(eparam);
 
 }
 
@@ -128,13 +132,12 @@ py_gs_draw_sprite(PyObject* self, PyObject* args)
     if (!PyArg_ParseTuple(args, "Olll", &py_tex,&flip,&width,&height)) {
         return NULL;
     }
-
-    // TODO type check
-
-
-    if(py_tex->tex) {
-        gs_draw_sprite(py_tex->tex,flip,width,height);
+    if(!py_gs_texture_t_valid_check(py_tex)){
+	return NULL;
     }
+    
+    gs_draw_sprite(py_tex->p,flip,width,height);
+    
 
     Py_RETURN_NONE;
 
@@ -187,13 +190,7 @@ py_gs_texture_create(PyObject* self, PyObject* args)
 
     gs_texture_t* tex = gs_texture_create(cx,cy,color_format,levels,(const uint8_t**)&addr,flags);
 
-    PyObject* py_tex_args = Py_BuildValue("()");
-    py_gs_texture_t* py_tex =  PyObject_CallObject((PyObject*)&py_gs_texture_t_type,py_tex_args);
-    py_tex->tex = tex;
-    Py_DECREF(py_tex_args);
-
-
-    return py_tex;
+    return py_gs_texture_t_create(tex);
 
 }
 
@@ -207,11 +204,14 @@ py_gs_texture_destroy(PyObject* self, PyObject* args)
         return NULL;
     }
 
-    //TODO check type
 
-    gs_texture_destroy(py_tex->tex);
-
-    py_tex->tex = NULL;
+    if(!py_gs_texture_t_type_check(py_tex)){
+	return NULL;
+    }
+    if(py_tex->p){
+      gs_texture_destroy(py_tex->p);
+      py_tex->p = NULL;
+    }
 
     Py_RETURN_NONE;
 }
