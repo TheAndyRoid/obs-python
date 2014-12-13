@@ -1,2 +1,4 @@
 /data/scripts/__*
+/data/scripts/libobs.py
+/swig/libobs_wrap.c
 *.pyc

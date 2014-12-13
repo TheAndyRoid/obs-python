@@ -24,6 +24,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 #include "utils.h"
 #include "py-obs.h"
+#include "swig/libobs_wrap.c"
 
 
 
@@ -117,47 +118,36 @@ bool obs_module_load()
 
     //Load the OBS Extension
     PyImport_AppendInittab("OBS", py_obs_init);
-
+    PyImport_AppendInittab("_libobs", PyInit__libobs);
 
     Py_Initialize();
     PyEval_InitThreads();
-
+ 
+     
 
     /*Must set arguments for guis to work*/
 
     wchar_t* argv[] = { L"OBS", NULL };
     int argc = sizeof(argv) / sizeof(wchar_t*) - 1;
+  
+    SWIG_init();
+
 
     PySys_SetArgv(argc, argv);
-
-
-    PyRun_SimpleString("import sys");
+   
+    PyRun_SimpleString("import libobs");
     PyRun_SimpleString("import os");
-    PyRun_SimpleString("os.environ['PYTHONUNBUFFERED'] = '1'");
+      PyRun_SimpleString("os.environ['PYTHONUNBUFFERED'] = '1'");
     PyRun_SimpleString("sys.stdout = open('/dev/shm/stdOut.txt','w',1)");
     PyRun_SimpleString("sys.stderr = open('/dev/shm/stdErr.txt','w',1)");
     PyRun_SimpleString("import OBS");
+ 
 
 
 
     /*Load types*/
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    /*Load a file*/
+   /*Load a file*/
     
     
     PyObject* pName, *pModule, *pFunc,*argList;
@@ -178,6 +168,7 @@ bool obs_module_load()
     bfree(scripts_path);
     //import the module
     pModule = PyImport_Import(pName);
+     pyHasError();
     //get the function by name
     if(pModule != NULL) {
         pFunc = PyObject_GetAttr(pModule, PyUnicode_FromString("register"));
@@ -190,6 +181,8 @@ bool obs_module_load()
         }
 	Py_XDECREF(pModule);
     }
+     
+    
 
     Py_XDECREF(pName);
     

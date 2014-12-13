@@ -1,5 +1,6 @@
 import OBS
 import os
+import libobs
 from random import randint
 
 
@@ -38,7 +39,7 @@ class MySource():
                        
         OBS.obs_enter_graphics()
         OBS.gs_texture_set_image(self.tex,self.pixelbuffer,self.width*self.bpp,False)
-        OBS.gs_reset_blend_state()
+        libobs.gs_reset_blend_state()
         param = OBS.gs_effect_get_param_by_name(effect,"image")        
         OBS.gs_effect_set_texture(param,self.tex)
         OBS.gs_draw_sprite(self.tex,0,self.width,self.height)
