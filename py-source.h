@@ -25,6 +25,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 #include "utils.h"
 #include "obs-python-module.h"
 
+
 //Similar to libobs/source.h
 
 
@@ -710,12 +711,21 @@ static void py_source_video_render(void* data, gs_effect_t* effect)
         PyGILState_Release(gstate);
         return ;
     }
-    PyObject* p_effect = (long)effect;
-    PyObject* argList = Py_BuildValue("(Ol)",py_data,p_effect);
+    
+    
+    /*Create SWIG effect*/
+
+    
+    PyObject* swig_effect = SWIG_Python_NewPointerObj(NULL,SWIG_as_voidptr(effect), SWIGTYPE_p_gs_effect,  0 );
+
+
+
+    PyObject *argList = Py_BuildValue("(OO)",py_data,swig_effect);
+
     PyObject_CallObject(py_src->video_render,argList);
     pyHasError();
     Py_XDECREF(argList);
-    Py_XDECREF(effect);
+    Py_XDECREF(swig_effect);
 
 
     PyGILState_Release(gstate);

@@ -17,14 +17,18 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 ********************************************************************************/
 
 #include <Python.h>
+
+
+#include "obs-python-module.h"
+
 #include <obs-module.h>
 #include <obs-ui.h>
 #include <util/platform.h>
-#include "obs-python-module.h"
 
 #include "utils.h"
 #include "py-obs.h"
-#include "swig/libobs_wrap.c"
+
+
 
 
 
@@ -118,6 +122,8 @@ bool obs_module_load()
 
     //Load the OBS Extension
     PyImport_AppendInittab("OBS", py_obs_init);
+
+    //load the swig
     PyImport_AppendInittab("_libobs", PyInit__libobs);
 
     Py_Initialize();
@@ -135,17 +141,15 @@ bool obs_module_load()
 
     PySys_SetArgv(argc, argv);
    
-    PyRun_SimpleString("import libobs");
+    //need to add to directory
+
     PyRun_SimpleString("import os");
-      PyRun_SimpleString("os.environ['PYTHONUNBUFFERED'] = '1'");
+    PyRun_SimpleString("import sys");
+    PyRun_SimpleString("os.environ['PYTHONUNBUFFERED'] = '1'");
     PyRun_SimpleString("sys.stdout = open('/dev/shm/stdOut.txt','w',1)");
     PyRun_SimpleString("sys.stderr = open('/dev/shm/stdErr.txt','w',1)");
     PyRun_SimpleString("import OBS");
  
-
-
-
-    /*Load types*/
 
    /*Load a file*/
     
@@ -166,7 +170,11 @@ bool obs_module_load()
     //Add the path to env
     add_to_python_path(scripts_path);
     bfree(scripts_path);
-    //import the module
+
+    /*Import libobs*/
+    PyImport_ImportModule("libobs");
+
+    //import the script
     pModule = PyImport_Import(pName);
      pyHasError();
     //get the function by name
@@ -175,15 +183,12 @@ bool obs_module_load()
         if(pFunc != NULL) {
 	  argList = Py_BuildValue("()");
             PyObject_CallObject(pFunc,argList);
-	     pyHasError();
+ 	     pyHasError();
 	    Py_XDECREF(pFunc);
 	    Py_XDECREF(argList);
         }
 	Py_XDECREF(pModule);
     }
-     
-    
-
     Py_XDECREF(pName);
     
 
@@ -212,9 +217,9 @@ bool obs_module_load()
     //Register this base class here
     obs_register_source(&python_source_info);
     
-    //need to search sources for other python classes.
 
 
+    //Release the thread gill
     PyThreadState* pts = PyGILState_GetThisThreadState();
     PyEval_ReleaseThread(pts);
 

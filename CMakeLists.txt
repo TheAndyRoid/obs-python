@@ -26,9 +26,8 @@ target_link_libraries(obs-python
 set(PRE_BUILD_TARGET obs-python-swig)
 add_custom_target(obs-python-swig
   WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}/swig
-  COMMAND swig -python -modern -py3 libobs.i
+  COMMAND swig -python -builtin -modern -py3 libobs.i
   COMMAND mv libobs.py ../data/scripts/libobs.py
-
 )
 add_dependencies(${PROJECT_NAME} ${PRE_BUILD_TARGET})
 

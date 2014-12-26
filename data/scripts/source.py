@@ -16,16 +16,14 @@ class MySource():
         GS_BGRA = 5
         LEVELS =1  
         FLAGS = 1<<1
-        a = OBS.gs_texture_t()
-        print(type(a))
-        OBS.obs_enter_graphics()
-        self.tex = OBS.gs_texture_create(self.width,
+        libobs.obs_enter_graphics()
+        self.tex = libobs.gs_texture_create(self.width,
                                          self.height,
                                          OBS.gs_color_format.GS_BGRA,
                                          LEVELS,
                                          self.pixelbuffer,
                                          OBS.GS_DYNAMIC)
-        OBS.obs_leave_graphics()
+        libobs.obs_leave_graphics()
         print (self.tex)
     @staticmethod
     def create(settings,source):
@@ -37,13 +35,13 @@ class MySource():
                        rand,
                        255)
                        
-        OBS.obs_enter_graphics()
-        OBS.gs_texture_set_image(self.tex,self.pixelbuffer,self.width*self.bpp,False)
+        libobs.obs_enter_graphics()
+        libobs.gs_texture_set_image(self.tex,self.pixelbuffer,self.width*self.bpp,False)
         libobs.gs_reset_blend_state()
-        param = OBS.gs_effect_get_param_by_name(effect,"image")        
-        OBS.gs_effect_set_texture(param,self.tex)
-        OBS.gs_draw_sprite(self.tex,0,self.width,self.height)
-        OBS.obs_leave_graphics()
+        param = libobs.gs_effect_get_param_by_name(effect,"image")        
+        libobs.gs_effect_set_texture(param,self.tex)
+        libobs.gs_draw_sprite(self.tex,0,self.width,self.height)
+        libobs.obs_leave_graphics()
         print(param)
         print("render")
         pass
@@ -55,9 +53,9 @@ class MySource():
         return self.height
     def destroy(self):
         print(self.tex)
-        OBS.obs_enter_graphics()
-        OBS.gs_texture_destroy(self.tex)
-        OBS.obs_leave_graphics()
+        libobs.obs_enter_graphics()
+        libobs.gs_texture_destroy(self.tex)
+        libobs.obs_leave_graphics()
     def SetColour(self,r,g,b,a):
         for i in range(0,self.width*self.height*self.bpp,self.bpp):
             self.pixelbuffer[i] = b  #blue
@@ -76,7 +74,5 @@ def register():
     src.get_width = MySource.get_width
     src.destroy = MySource.destroy
     OBS.obs_register_source(src)
-    print(OBS.GS_DYNAMIC)
-    print(OBS.GS_BUILD_MIPMAPS)
     print ("Registered MySource")
 

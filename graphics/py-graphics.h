@@ -39,7 +39,24 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
   {"gs_effect_set_texture",py_gs_effect_set_texture,METH_VARARGS,""}, \
   {"gs_texture_set_image",py_gs_texture_set_image,METH_VARARGS,""}, \
   {"gs_effect_get_param_by_name", py_gs_effect_get_param_by_name,METH_VARARGS,""}, \
- 
+
+
+
+
+/*TEMP*/ 
+
+
+gs_texture_t* swig_gs_texture_t(PyObject* obj)
+{
+    void* argp1 = 0;
+    swig_type_info* pTypeInfo = SWIG_TypeQuery("myif *");
+
+    const int res = SWIG_ConvertPtr(obj, &argp1,pTypeInfo, 0);
+    if (!SWIG_IsOK(res)) {
+        abort();
+    }
+    return argp1;
+}
 
 
 
@@ -51,19 +68,18 @@ py_gs_texture_set_image(PyObject* self, PyObject* args)
 
     long linesize,invert;
     PyObject* byte_array;
-    py_gs_texture_t*  py_tex;
+    PyObject*  swig_gs_tex;
 
-    if (!PyArg_ParseTuple(args, "OOlp", &py_tex,&byte_array,&linesize,&invert)) {
+    if (!PyArg_ParseTuple(args, "OOlp", &swig_gs_tex,&byte_array,&linesize,&invert)) {
         return NULL;
     }
 
-    char* addr = PyByteArray_AsString(byte_array);
-    
-    if(!py_gs_texture_t_valid_check(py_tex)){
-	return NULL;
-    }
+    char* addr = PyByteArray_AsString(byte_array);  
 
-    gs_texture_set_image(py_tex->p,addr,linesize,invert);
+    gs_texture_t *tex; 
+    SWIG_ConvertPtr(swig_gs_tex, &tex,SWIGTYPE_p_gs_texture,0);
+
+    gs_texture_set_image(tex,addr,linesize,invert);
 
     Py_RETURN_NONE;
 }
@@ -73,17 +89,20 @@ static PyObject*
 py_gs_effect_set_texture(PyObject* self, PyObject* args)
 {
 
-    py_gs_texture_t* py_tex;
+    PyObject* swig_gs_tex;
     py_gs_eparam_t*  py_param;
 
-    if (!PyArg_ParseTuple(args, "OO", &py_param,&py_tex)) {
+
+
+
+    if (!PyArg_ParseTuple(args, "OO", &py_param,&swig_gs_tex)) {
         return NULL;
     }
-    if(!py_gs_texture_t_valid_check(py_tex) || !py_gs_eparam_t_valid_check(py_param)){
-	return NULL;
-    }
     
-    gs_effect_set_texture(py_param->p,py_tex->p);
+    gs_effect_t *tex;
+    SWIG_ConvertPtr(swig_gs_tex,(void**)&tex,SWIGTYPE_p_gs_texture,0);
+
+    gs_effect_set_texture(py_param->p,tex);
 
     Py_RETURN_NONE;
 }
@@ -95,16 +114,21 @@ static PyObject*
 py_gs_effect_get_param_by_name(PyObject* self, PyObject* args)
 {
 
-    long p_effect;
+    PyObject *py_effect;
     PyObject* py_name;
-    if (!PyArg_ParseTuple(args, "lU", &p_effect,&py_name)) {
+    if (!PyArg_ParseTuple(args, "OU", &py_effect,&py_name)) {
         return NULL;
     }
 
-    gs_effect_t* effect = (gs_effect_t*)p_effect;
+
+    gs_effect_t *effect;
+    SWIG_ConvertPtr(py_effect,&effect,SWIGTYPE_p_gs_effect,0);
+
     gs_eparam_t* eparam = gs_effect_get_param_by_name(effect,PyUnicode_AsUTF8(py_name));
+
+    PyObject* swig_gs_eparam_t = SWIG_Python_NewPointerObj(NULL,SWIG_as_voidptr(eparam),SWIGTYPE_p_gs_effect_param, 0 |  0 );
    
-    return  py_gs_eparam_t_create(eparam);
+    return  swig_gs_eparam_t;
 
 }
 
@@ -126,17 +150,19 @@ static PyObject*
 py_gs_draw_sprite(PyObject* self, PyObject* args)
 {
 
-    py_gs_texture_t* py_tex;
+    PyObject* swig_gs_tex;
     long flip,width,height;
 
-    if (!PyArg_ParseTuple(args, "Olll", &py_tex,&flip,&width,&height)) {
+    if (!PyArg_ParseTuple(args, "Olll", &swig_gs_tex,&flip,&width,&height)) {
         return NULL;
     }
-    if(!py_gs_texture_t_valid_check(py_tex)){
-	return NULL;
-    }
+
+
+    gs_texture_t *tex = NULL;
+    SWIG_ConvertPtr(swig_gs_tex,&tex,SWIGTYPE_p_gs_texture,0);
+
     
-    gs_draw_sprite(py_tex->p,flip,width,height);
+    gs_draw_sprite(tex,flip,width,height);
     
 
     Py_RETURN_NONE;
@@ -188,9 +214,10 @@ py_gs_texture_create(PyObject* self, PyObject* args)
     char* addr = PyByteArray_AsString(byte_array);
 
 
-    gs_texture_t* tex = gs_texture_create(cx,cy,color_format,levels,(const uint8_t**)&addr,flags);
+    gs_texture_t* tex = gs_texture_create(cx,cy,color_format,levels,&addr,flags);  
+    PyObject* swig_gs_texture_t = SWIG_Python_NewPointerObj(NULL,SWIG_as_voidptr(tex), SWIGTYPE_p_gs_texture, 0 |  0 );
 
-    return py_gs_texture_t_create(tex);
+    return swig_gs_texture_t;
 
 }
 
@@ -198,20 +225,17 @@ static PyObject*
 py_gs_texture_destroy(PyObject* self, PyObject* args)
 {
 
-    py_gs_texture_t* py_tex;
+    PyObject* swig_gs_tex;
 
-    if (!PyArg_ParseTuple(args, "O", &py_tex)) {
+    if (!PyArg_ParseTuple(args, "O", &swig_gs_tex)) {
         return NULL;
     }
 
+    
+    gs_texture_t *tex;
+    SWIG_ConvertPtr(swig_gs_tex,(void**)&tex,SWIGTYPE_p_gs_texture,0);
 
-    if(!py_gs_texture_t_type_check(py_tex)){
-	return NULL;
-    }
-    if(py_tex->p){
-      gs_texture_destroy(py_tex->p);
-      py_tex->p = NULL;
-    }
+    gs_texture_destroy(tex); 
 
     Py_RETURN_NONE;
 }
