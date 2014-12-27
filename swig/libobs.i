@@ -1,4 +1,5 @@
-%module libobs
+%module(threads="1") libobs
+%nothread;
 %{
 #define SWIG_FILE_WITH_INIT
 
@@ -25,6 +26,15 @@
 
 
 %include "../../../libobs/graphics/graphics.h"
+
+
+
+
+ /*declare these manually cause mutex + GIL = deadlocks*/
+%thread;
+void obs_enter_graphics(void);
+//void obs_leave_graphics(void);
+%nothread;
 %include "../../../libobs/obs.h"
 
 
