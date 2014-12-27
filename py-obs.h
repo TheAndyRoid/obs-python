@@ -18,9 +18,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 #include <Python.h>
 #include "py-source.h"
-#include "graphics/py-graphics.h"
-#include "types/gs_draw_mode.h"
-#include "types/gs_color_format.h"
+
 
 
 
@@ -80,135 +78,47 @@ py_obs_register_source(PyObject* self, PyObject* args)
 
 
 
-
-
-
-
-
-
 static PyMethodDef py_obs_methods[] = {
     {"log",py_obs_log,METH_VARARGS,"Writes to the obs log"},
     {"obs_register_source",py_obs_register_source,METH_VARARGS,"Registers a new source with obs."},
-    GS_FUNCTIONS
     { NULL, NULL, 0, NULL }
 };
 
 
-struct module_state {
-    PyObject* error;
-};
 
 
-#define GETSTATE(m) ((struct module_state*)PyModule_GetState(m))
+void add_functions_to_py_module(PyObject *module,PyMethodDef *method_list){
 
-
-static PyObject*
-error_out(PyObject* m)
-{
-    struct module_state* st = GETSTATE(m);
-    PyErr_SetString(st->error, "something bad happened");
-    return NULL;
+    PyObject *dict = PyModule_GetDict(module);
+    PyObject *name = PyModule_GetNameObject(module);
+    if(dict == NULL || name == NULL){
+      return;
+    }
+    for(PyMethodDef *ml = method_list; ml->ml_name != NULL; ml++){
+      PyObject *func = PyCFunction_NewEx(ml,module,name);
+      if(func == NULL){
+	continue;
+      }
+      PyDict_SetItemString(dict, ml->ml_name, func); 
+      Py_DECREF(func);
+    }
+    Py_DECREF(name);
 }
-
-
-
-
-static int myextension_traverse(PyObject* m, visitproc visit, void* arg)
-{
-    Py_VISIT(GETSTATE(m)->error);
-    return 0;
-}
-
-static int myextension_clear(PyObject* m)
-{
-    Py_CLEAR(GETSTATE(m)->error);
-    return 0;
-}
-
-
-static struct PyModuleDef moduledef = {
-    PyModuleDef_HEAD_INIT,
-    "OBS",
-    NULL,
-    sizeof(struct module_state),
-    py_obs_methods,
-    NULL,
-    myextension_traverse,
-    myextension_clear,
-    NULL
-};
-
-
-
-void py_obs_setup_defines(PyObject *module){
-  py_gs_setup_defines(module);
-
-}
-
-
 
 
 #define INITERROR return NULL
-
-PyMODINIT_FUNC
-py_obs_init(void)
-{
-
-
-    PyObject* m = PyModule_Create(&moduledef);
-
-    if (m == NULL)
-        INITERROR;
-
-
-
+void extend_swig_libobs(PyObject* py_swig_libobs){
 
 
     if (PyType_Ready(&py_source_type) < 0) {
         INITERROR;
     }
     Py_INCREF(&py_source_type);
-    PyModule_AddObject(m, "Source", (PyObject*)&py_source_type);
+    PyModule_AddObject(py_swig_libobs , "Source", (PyObject*)&py_source_type);
+  
 
-
-
-    if (PyType_Ready(&py_gs_texture_t_type) < 0) {
-        INITERROR;
-    }
-    Py_INCREF(&py_gs_texture_t_type);
-    PyModule_AddObject(m, "gs_texture_t", (PyObject*)&py_gs_texture_t_type);
-
-    if (PyType_Ready(&py_gs_eparam_t_type) < 0) {
-        INITERROR;
-    }
-    Py_INCREF(&py_gs_eparam_t_type);
-    PyModule_AddObject(m, "gs_eparam_t", (PyObject*)&py_gs_eparam_t_type);
+    add_functions_to_py_module(py_swig_libobs,py_obs_methods);
     
-
-    
-
-    /*Enums types*/    
-     
-    if (py_gs_draw_mode_init_type(&py_gs_draw_mode_type)+ PyType_Ready(&py_gs_draw_mode_type) < 0) {
-       INITERROR;
-    }
-    Py_INCREF(&py_gs_draw_mode_type);
-    PyModule_AddObject(m, "gs_draw_mode", (PyObject*)&py_gs_draw_mode_type);
-
-    if (py_gs_color_format_init_type(&py_gs_color_format_type)+ PyType_Ready(&py_gs_color_format_type) < 0) {
-       INITERROR;
-    }
-    Py_INCREF(&py_gs_color_format_type);
-    PyModule_AddObject(m, "gs_color_format", (PyObject*)&py_gs_color_format_type);
-    
-
-
-
-    py_obs_setup_defines(m);
-
-    return m;
 
 }
-
-
 

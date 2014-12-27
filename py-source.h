@@ -26,12 +26,6 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 #include "obs-python-module.h"
 
 
-//Similar to libobs/source.h
-
-
-
-
-
 /*Object Data*/
 typedef struct {
     PyObject_HEAD
@@ -713,19 +707,16 @@ static void py_source_video_render(void* data, gs_effect_t* effect)
     }
     
     
-    /*Create SWIG effect*/
-
-    
+    /*Create SWIG effect object*/    
     PyObject* swig_effect = SWIG_Python_NewPointerObj(NULL,SWIG_as_voidptr(effect), SWIGTYPE_p_gs_effect,  0 );
-
-
-
     PyObject *argList = Py_BuildValue("(OO)",py_data,swig_effect);
 
     PyObject_CallObject(py_src->video_render,argList);
     pyHasError();
     Py_XDECREF(argList);
     Py_XDECREF(swig_effect);
+
+    
 
 
     PyGILState_Release(gstate);
@@ -753,9 +744,9 @@ static struct obs_source_frame* py_source_filter_video(void* data, const struct 
     pyHasError();
     Py_XDECREF(argList);
 
-
+    //SWIG_ConvertPtr(swig_gs_tex,&tex,SWIGTYPE_p_gs_texture,0);
     PyGILState_Release(gstate);
-
+    
 }
 static struct obs_audio_data* py_source_filter_audio(void* data, const struct obs_audio_data* audio)
 {

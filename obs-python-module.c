@@ -120,10 +120,8 @@ bool obs_module_load()
     //Need to init python here
 
 
-    //Load the OBS Extension
-    PyImport_AppendInittab("OBS", py_obs_init);
 
-    //load the swig
+    //load the swig  
     PyImport_AppendInittab("_libobs", PyInit__libobs);
 
     Py_Initialize();
@@ -148,7 +146,7 @@ bool obs_module_load()
     PyRun_SimpleString("os.environ['PYTHONUNBUFFERED'] = '1'");
     PyRun_SimpleString("sys.stdout = open('/dev/shm/stdOut.txt','w',1)");
     PyRun_SimpleString("sys.stderr = open('/dev/shm/stdErr.txt','w',1)");
-    PyRun_SimpleString("import OBS");
+
  
 
    /*Load a file*/
@@ -172,7 +170,11 @@ bool obs_module_load()
     bfree(scripts_path);
 
     /*Import libobs*/
-    PyImport_ImportModule("libobs");
+    PyObject *py_libobs = PyImport_ImportModule("libobs");
+
+    //Add our custom stuff to libobs
+    extend_swig_libobs(py_libobs);
+
 
     //import the script
     pModule = PyImport_Import(pName);

@@ -1,4 +1,3 @@
-import OBS
 import os
 import libobs
 from random import randint
@@ -19,10 +18,10 @@ class MySource():
         libobs.obs_enter_graphics()
         self.tex = libobs.gs_texture_create(self.width,
                                          self.height,
-                                         OBS.gs_color_format.GS_BGRA,
+                                         libobs.GS_BGRA,
                                          LEVELS,
                                          self.pixelbuffer,
-                                         OBS.GS_DYNAMIC)
+                                         libobs.GS_DYNAMIC)
         libobs.obs_leave_graphics()
         print (self.tex)
     @staticmethod
@@ -66,13 +65,13 @@ class MySource():
 
 def register():
     print(os.getcwd())
-    src = OBS.Source()
+    src = libobs.Source()
     src.create = MySource.create
     src.video_render = MySource.render
     src.video_tick = MySource.tick
     src.get_height = MySource.get_height
     src.get_width = MySource.get_width
     src.destroy = MySource.destroy
-    OBS.obs_register_source(src)
+    libobs.obs_register_source(src)
     print ("Registered MySource")
 
