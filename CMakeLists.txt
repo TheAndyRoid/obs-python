@@ -9,7 +9,6 @@ find_package(SWIG 2 REQUIRED)
 
 set(obs-python_SOURCES
 	obs-python-module.c
-	obs-python-source.c
 	py-source.h
 	py-obs.h)
 
