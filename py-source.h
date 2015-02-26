@@ -15,7 +15,7 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 ********************************************************************************/
-#pragma once 
+#pragma once
 
 
 #include <Python.h>
@@ -123,7 +123,8 @@ py_source_dealloc(py_source* self)
     Py_TYPE(self)->tp_free((PyObject*)self);
 }
 
-static PyObject* py_source_new(PyTypeObject* type, PyObject* args, PyObject* kwds)
+static PyObject* py_source_new(PyTypeObject* type, PyObject* args,
+                               PyObject* kwds)
 {
 
     py_source* self;
@@ -705,24 +706,26 @@ static void py_source_video_render(void* data, gs_effect_t* effect)
         PyGILState_Release(gstate);
         return ;
     }
-    
-    
-    /*Create SWIG effect object*/    
-    PyObject* swig_effect = SWIG_Python_NewPointerObj(NULL,SWIG_as_voidptr(effect), SWIGTYPE_p_gs_effect,  0 );
-    PyObject *argList = Py_BuildValue("(OO)",py_data,swig_effect);
+
+
+    /*Create SWIG effect object*/
+    PyObject* swig_effect = SWIG_Python_NewPointerObj(NULL,SWIG_as_voidptr(effect),
+                                                      SWIGTYPE_p_gs_effect,  0 );
+    PyObject* argList = Py_BuildValue("(OO)",py_data,swig_effect);
 
     PyObject_CallObject(py_src->video_render,argList);
     pyHasError();
     Py_XDECREF(argList);
     Py_XDECREF(swig_effect);
 
-    
+
 
 
     PyGILState_Release(gstate);
 
 }
-static struct obs_source_frame* py_source_filter_video(void* data, const struct obs_source_frame* frame)
+static struct obs_source_frame* py_source_filter_video(void* data,
+                                                       const struct obs_source_frame* frame)
 {
 
     struct python_data_pair* py_pair = data;
@@ -746,9 +749,10 @@ static struct obs_source_frame* py_source_filter_video(void* data, const struct 
 
     //SWIG_ConvertPtr(swig_gs_tex,&tex,SWIGTYPE_p_gs_texture,0);
     PyGILState_Release(gstate);
-    
+
 }
-static struct obs_audio_data* py_source_filter_audio(void* data, const struct obs_audio_data* audio)
+static struct obs_audio_data* py_source_filter_audio(void* data,
+                                                     const struct obs_audio_data* audio)
 {
 
     struct python_data_pair* py_pair = data;
@@ -774,7 +778,8 @@ static struct obs_audio_data* py_source_filter_audio(void* data, const struct ob
     PyGILState_Release(gstate);
 
 }
-static void py_source_enum_sources(void* data, obs_source_enum_proc_t enum_callback,void* param)
+static void py_source_enum_sources(void* data,
+                                   obs_source_enum_proc_t enum_callback,void* param)
 {
 
     struct python_data_pair* py_pair = data;
@@ -851,7 +856,8 @@ static void py_source_load(void* data,obs_data_t* settings)
     PyGILState_Release(gstate);
 
 }
-static void py_source_mouse_click(void* data,const struct obs_mouse_event* event, int32_t type,bool mouse_up,
+static void py_source_mouse_click(void* data,
+                                  const struct obs_mouse_event* event, int32_t type,bool mouse_up,
                                   uint32_t click_count)
 {
     struct python_data_pair* py_pair = data;
@@ -877,7 +883,8 @@ static void py_source_mouse_click(void* data,const struct obs_mouse_event* event
     PyGILState_Release(gstate);
 
 }
-static void py_source_mouse_move(void* data,const struct obs_mouse_event* event, bool mouse_leave)
+static void py_source_mouse_move(void* data,const struct obs_mouse_event* event,
+                                 bool mouse_leave)
 {
     struct python_data_pair* py_pair = data;
     py_source* py_src = py_pair->source;
@@ -902,7 +909,8 @@ static void py_source_mouse_move(void* data,const struct obs_mouse_event* event,
     PyGILState_Release(gstate);
 
 }
-static void py_source_mouse_wheel(void* data,const struct obs_mouse_event* event, int x_delta,int y_delta)
+static void py_source_mouse_wheel(void* data,
+                                  const struct obs_mouse_event* event, int x_delta,int y_delta)
 {
     struct python_data_pair* py_pair = data;
     py_source* py_src = py_pair->source;
@@ -949,7 +957,8 @@ static void py_source_focus(void* data,bool focus)
     PyGILState_Release(gstate);
 
 }
-static void py_source_key_click(void* data,const struct obs_key_event* event,bool key_up)
+static void py_source_key_click(void* data,const struct obs_key_event* event,
+                                bool key_up)
 {
     struct python_data_pair* py_pair = data;
     py_source* py_src = py_pair->source;

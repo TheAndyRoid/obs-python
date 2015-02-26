@@ -8,6 +8,7 @@
 
 #include "../../../libobs/graphics/graphics.h"
 #include "../../../libobs/obs.h"
+#include "../../../libobs/obs-data.h"
 
 
 %}
@@ -16,24 +17,34 @@
 %include "stdint.i"
 
 %typemap(in) uint8_t *data{
+  if(!PyByteArray_Check($input))
+  {
+    SWIG_exception_fail(SWIG_TypeError, "Expected a bytearray");
+
+  }
  $1 = PyByteArray_AsString($input); 
 }
 
+
 %typemap(in) uint8_t **data (uint8_t *tmp){
-  tmp = PyByteArray_AsString($input); 
+  if(!PyByteArray_Check($input))
+  {
+    SWIG_exception_fail(SWIG_TypeError, "Expected a bytearray");
+  }
+  tmp  = PyByteArray_AsString($input); 
   $1 = &tmp;
 }
 
 
 %include "../../../libobs/graphics/graphics.h"
+%include "../../../libobs/obs-data.h"
 
 
 
 
- /*declare these manually cause mutex + GIL = deadlocks*/
+ /*declare these manually because mutex + GIL = deadlocks*/
 %thread;
-void obs_enter_graphics(void);
-//void obs_leave_graphics(void);
+void obs_enter_graphics(void); //Should only block on entering mutex
 %nothread;
 %include "../../../libobs/obs.h"
 

@@ -33,14 +33,17 @@ class MySource():
                        rand,
                        rand,
                        255)
-                       
-        libobs.obs_enter_graphics()
-        libobs.gs_texture_set_image(self.tex,self.pixelbuffer,self.width*self.bpp,False)
-        libobs.gs_reset_blend_state()
-        param = libobs.gs_effect_get_param_by_name(effect,"image")        
-        libobs.gs_effect_set_texture(param,self.tex)
-        libobs.gs_draw_sprite(self.tex,0,self.width,self.height)
-        libobs.obs_leave_graphics()
+        try:
+            libobs.obs_enter_graphics()
+            libobs.gs_texture_set_image(self.tex,self.pixelbuffer,self.width*self.bpp,False)
+            libobs.gs_reset_blend_state()
+            param = libobs.gs_effect_get_param_by_name(effect,"image")        
+            libobs.gs_effect_set_texture(param,self.tex)
+            libobs.gs_draw_sprite(self.tex,0,self.width,self.height)
+        except:
+            pass
+        finally:
+            libobs.obs_leave_graphics()
         print(param)
         print("render")
         pass
