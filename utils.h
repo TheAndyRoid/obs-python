@@ -21,20 +21,16 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 
 #include <Python.h>
-
+#include "swig/swigpyrun.h"
 
 
 static bool pyHasError()
 {
-    bool ret = false;
-
     if (PyErr_Occurred()) {
-
         PyErr_Print();
-        ret = true;
+        return true;
     }
-
-    return ret;
+    return false;
 }
 
 static bool isPyObjectBaseClass(PyObject* obj, const char* type )
@@ -68,9 +64,8 @@ static void add_to_python_path(char* cstr)
     pyHasError();
 
     while(strstr(cstr,"\\") != NULL) {
-        char* c = strstr(cstr,"\\") ;
-        c = "/";
     }
+
     blog(LOG_INFO, "PATH: %s",cstr);
     PyList_Append(path, PyUnicode_FromString(cstr));
     pyHasError();
@@ -88,4 +83,32 @@ static void add_enum_to_dict(PyObject *tp_dict, char ** names){
 
 }
 
+//must be used when GIL lock is held
+static inline int  py_swig_to_libobs(const char* SWIG_type_str, PyObject* py_in, void* libobs_out){
 
+  swig_type_info* SWIG_type_info = SWIG_TypeQuery(SWIG_type_str);
+    
+  if (SWIG_type_info == NULL){
+    blog(LOG_INFO, "SWIG could not find type : %s",SWIG_type_str);
+    return SWIG_ERROR ;
+  }
+    
+  return SWIG_ConvertPtr(py_in, libobs_out, SWIG_type_info, 0);
+}
+
+static inline int libobs_to_py_swig(const char* SWIG_type_str, void* libobs_in, int ownership, PyObject** py_out){
+
+  swig_type_info* SWIG_type_info = SWIG_TypeQuery(SWIG_type_str);
+  
+  if (SWIG_type_info == NULL){
+    blog(LOG_INFO, "SWIG could not find type : %s",SWIG_type_str);
+    return SWIG_ERROR;
+  }
+
+  *py_out = SWIG_NewPointerObj(libobs_in, SWIG_type_info, ownership);
+
+  if(*py_out == Py_None){
+    return SWIG_ERROR;
+  }
+  return SWIG_OK;
+}

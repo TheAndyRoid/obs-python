@@ -23,21 +23,21 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 
 static PyObject*
-py_obs_log(PyObject* self, PyObject* args)
+py_obs_blog(PyObject* self, PyObject* args)
 {
+    UNUSED_PARAMETER(self);
     long argLength = PyTuple_Size(args);
     if (argLength != 1) {
         PyErr_SetString(PyExc_TypeError, "Wrong number of arguments");
         return NULL;
     }
-
     PyUnicodeObject* str;
 
     if (!PyArg_ParseTuple(args, "U", &str)) {
         return NULL;
     }
 
-    char* cstr =PyUnicode_AsUTF8(str);
+    char* cstr =PyUnicode_AsUTF8((PyObject*)str);
 
     blog(LOG_INFO,"%s",cstr);
 
@@ -47,6 +47,7 @@ py_obs_log(PyObject* self, PyObject* args)
 static PyObject*
 py_obs_register_source(PyObject* self, PyObject* args)
 {
+    UNUSED_PARAMETER(self);
     long argLength = PyTuple_Size(args);
     if (argLength != 1) {
         PyErr_SetString(PyExc_TypeError, "Wrong number of arguments");
@@ -60,17 +61,21 @@ py_obs_register_source(PyObject* self, PyObject* args)
     }
 
     if (!PyObject_TypeCheck(obj,&py_source_type)) {
-        PyErr_SetString(PyExc_TypeError, "Object is not OBS.Source or subclass of OBS.Source");
+        PyErr_SetString(PyExc_TypeError, "Object is not obspython.Source or subclass of obspython.Source");
         return NULL;
     }
 
     py_source* py_src = (py_source*)obj;
 
+    //updates all the C calls to call the correct python wrapper functions
     py_to_obs_source_info(py_src);
 
     obs_register_source(py_src->py_source_info);
     Py_INCREF(py_src);
 
+    //Need to keep list of the registered source objects
+    // 1 Stops python garbage collecting them
+    // 2 Lets us destroy them at module unload 
     list_add_source(py_src);
 
     Py_RETURN_NONE;
@@ -79,7 +84,7 @@ py_obs_register_source(PyObject* self, PyObject* args)
 
 
 static PyMethodDef py_obs_methods[] = {
-    {"log",py_obs_log,METH_VARARGS,"Writes to the obs log"},
+    {"blog",py_obs_blog,METH_VARARGS,"Writes to the obs log"},
     {"obs_register_source",py_obs_register_source,METH_VARARGS,"Registers a new source with obs."},
     { NULL, NULL, 0, NULL }
 };
@@ -107,20 +112,21 @@ void add_functions_to_py_module(PyObject* module,PyMethodDef* method_list)
 }
 
 
-#define INITERROR return NULL
-void extend_swig_libobs(PyObject* py_swig_libobs)
+
+void* extend_swig_libobs(PyObject* py_swig_libobs)
 {
 
 
     if (PyType_Ready(&py_source_type) < 0) {
-        INITERROR;
+      return NULL;
     }
-    Py_INCREF(&py_source_type);
-    PyModule_AddObject(py_swig_libobs , "Source", (PyObject*)&py_source_type);
 
+    Py_INCREF(&py_source_type);
+
+    PyModule_AddObject(py_swig_libobs , "obs_source_info", (PyObject*)&py_source_type);
 
     add_functions_to_py_module(py_swig_libobs,py_obs_methods);
 
-
+    return NULL;
 }
 

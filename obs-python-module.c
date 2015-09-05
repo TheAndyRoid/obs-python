@@ -122,19 +122,20 @@ bool obs_module_load()
 
 
     //load the swig  
-    PyImport_AppendInittab("_libobs", PyInit__libobs);
+    
+
 
     Py_Initialize();
     PyEval_InitThreads();
  
-     
+    
 
     /*Must set arguments for guis to work*/
 
-    wchar_t* argv[] = { L"OBS", NULL };
+    wchar_t* argv[] = { L"", NULL };
     int argc = sizeof(argv) / sizeof(wchar_t*) - 1;
   
-    SWIG_init();
+    //SWIG_init();
 
 
     PySys_SetArgv(argc, argv);
@@ -146,8 +147,11 @@ bool obs_module_load()
     PyRun_SimpleString("os.environ['PYTHONUNBUFFERED'] = '1'");
     PyRun_SimpleString("sys.stdout = open('/dev/shm/stdOut.txt','w',1)");
     PyRun_SimpleString("sys.stderr = open('/dev/shm/stdErr.txt','w',1)");
+    PyRun_SimpleString("print(sys.version)");
 
- 
+
+
+
 
    /*Load a file*/
     
@@ -159,29 +163,44 @@ bool obs_module_load()
     pName = PyUnicode_FromString("source");
 
     char script[] = "/scripts";
-    char *data_path = obs_get_module_data_path(obs_current_module());
+    const char *data_path = obs_get_module_data_path(obs_current_module());
     char *scripts_path = bzalloc(strlen(data_path)+strlen(script));
     strcpy(scripts_path,data_path);
     strcat(scripts_path,script);
+
+
 
 
     //Add the path to env
     add_to_python_path(scripts_path);
     bfree(scripts_path);
 
+
+    //PyImport_AppendInittab("_libobs", PyInit_libobs);
     /*Import libobs*/
-    PyObject *py_libobs = PyImport_ImportModule("libobs");
+
+    
+    //Py_XDECREF(main_module);
+
 
     //Add our custom stuff to libobs
-    extend_swig_libobs(py_libobs);
 
 
     //import the script
+
     pModule = PyImport_Import(pName);
-     pyHasError();
+    pyHasError();
     //get the function by name
     if(pModule != NULL) {
-        pFunc = PyObject_GetAttr(pModule, PyUnicode_FromString("register"));
+      
+      PyObject *ns = PyModule_GetDict(pModule);
+      Py_INCREF(ns);
+      PyObject *py_libobs = PyImport_ImportModuleEx("obspython",ns,ns,NULL);
+      Py_INCREF(py_libobs);
+      extend_swig_libobs(py_libobs);
+      PyModule_AddObject(pModule,"obspython",py_libobs);
+      
+      pFunc = PyObject_GetAttr(pModule, PyUnicode_FromString("register"));
         if(pFunc != NULL) {
 	  argList = Py_BuildValue("()");
             PyObject_CallObject(pFunc,argList);
@@ -193,24 +212,8 @@ bool obs_module_load()
     }
     Py_XDECREF(pName);
     
-
-
-
-
-    /*
-    PyRun_SimpleString("print('test')");
-    PyRun_SimpleString("import OBS");
-    PyRun_SimpleString("a = OBS.Source()");
-
-    if(pyHasError()) {
-        return false;
-    }
     
-    PyRun_SimpleString("OBS.log(str(type(a)))");
-    PyRun_SimpleString("OBS.log(a.id)");
-    PyRun_SimpleString("OBS.log('Module Load')");
-    PyRun_SimpleString("OBS.obs_register_source(a)");
-    */
+
 
 
     //Not implemented yet?
@@ -273,7 +276,7 @@ static void* python_source_create(obs_data_t* settings, obs_source_t* source)
     PyGILState_STATE gstate;
     gstate = PyGILState_Ensure();
 
-    PyRun_SimpleString("OBS.log('python_source_create with python YAYPyRun_SimpleString')");
+    //    PyRun_SimpleString("libobs.log('python_source_create with python YAYPyRun_SimpleString')");
 
     UNUSED_PARAMETER(source);
     //Create the new source here

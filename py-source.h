@@ -64,7 +64,6 @@ typedef struct {
 
 //The regestired types
 struct python_source {
-
     py_source* source;
     struct python_source* next;
     struct python_source* prev;
@@ -117,7 +116,6 @@ py_source_dealloc(py_source* self)
     Py_XDECREF(self->focus);
     Py_XDECREF(self->key_click);
 
-
     list_remove_source(self->py_source_info->id,self);
     bfree(self->py_source_info);
     Py_TYPE(self)->tp_free((PyObject*)self);
@@ -127,6 +125,8 @@ static PyObject* py_source_new(PyTypeObject* type, PyObject* args,
                                PyObject* kwds)
 {
 
+    UNUSED_PARAMETER(args);
+    UNUSED_PARAMETER(kwds);
     py_source* self;
 
 
@@ -284,12 +284,17 @@ static PyObject* py_source_new(PyTypeObject* type, PyObject* args,
 
 }
 
+
 static int
 py_source_init(py_source* self, PyObject* args, PyObject* kwds)
 {
+    UNUSED_PARAMETER(self);
+    UNUSED_PARAMETER(args);
+    UNUSED_PARAMETER(kwds);
     /*Do nothing for now*/
     return 0;
 }
+
 
 
 /*Method Table*/
@@ -332,7 +337,7 @@ static PyMemberDef py_source_members[] = {
 /*Python Type Object */
 static PyTypeObject py_source_type = {
     PyVarObject_HEAD_INIT(NULL, 0)
-    "OBS.Source",         /*tp_name*/
+    "obspython.obs_source_info",         /*tp_name*/
     sizeof(py_source),     /*tp_basicsize*/
     0,                         /*tp_itemsize*/
     (destructor)py_source_dealloc, /*tp_dealloc*/
@@ -351,7 +356,7 @@ static PyTypeObject py_source_type = {
     0,                         /*tp_setattro*/
     0,                         /*tp_as_buffer*/
     Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE, /*tp_flags*/
-    "OBS Source",           /* tp_doc */
+    "pylibobs Source",           /* tp_doc */
     0,               /* tp_traverse */
     0,               /* tp_clear */
     0,               /* tp_richcompare */
@@ -375,66 +380,120 @@ static PyTypeObject py_source_type = {
 
 static void* py_source_create(obs_data_t* settings, obs_source_t* source)
 {
-    PyGILState_STATE gstate;
-    gstate = PyGILState_Ensure();
-    char* id  = source->info.id;
+
+    const char* id  = source->info.id ;
+    struct python_data_pair* py_data = NULL;
+    
+    int SWIG_result = SWIG_OK;
+
+    //Swig types
+    const char* SWIG_str_obs_data_t = "obs_data_t *";
+    const char* SWIG_str_obs_source_t = "obs_source_t *";
+
+    //Python
+    PyObject* argList = NULL;
+    PyObject* data = NULL;
+    PyObject* py_swig_settings = NULL;
+    PyObject* py_swig_source = NULL;
 
     struct python_source* pythonsource = list_find_source(id);
-    if(!pythonsource) {
-        return NULL;
+    if( !pythonsource) {
+        goto failNOGIL;
     }
     py_source* py_src = pythonsource->source;
-    //call callablehere
 
-    //call python function.
+
+    PyGILState_STATE gstate;
+    gstate = PyGILState_Ensure();
+
+    //check python function.
     if(!PyCallable_Check(py_src->create)) {
         blog(LOG_INFO, "None Callable Create: %s",id);
-        PyGILState_Release(gstate);
-        return NULL;
+        goto fail;
     }
-    PyObject* py_settings,*py_source;
-    py_settings = Py_None;
-    py_source = Py_None;
 
-    PyObject* argList = Py_BuildValue("(OO)",py_settings,py_source);
-    PyObject* data= PyObject_CallObject(py_src->create,argList);
-    struct python_data_pair* py_data = NULL;
-    if(!pyHasError()) {
-        py_data = bzalloc(sizeof(struct python_data_pair));
-        py_data->data = data;
-        py_data->source = py_src;
+    SWIG_result =  libobs_to_py_swig(SWIG_str_obs_data_t,settings,0,&py_swig_settings);
 
+    if (!SWIG_IsOK(SWIG_result)) {
+        blog(LOG_INFO,
+             "%s:l%i \"SWIG Failed to make required python object: '%s' for '%s'\"",
+             __func__,
+             __LINE__,
+             SWIG_str_obs_data_t,
+             id);
+        goto fail;
     }
-    Py_XDECREF(argList);
-    Py_XDECREF(py_settings);
-    Py_XDECREF(py_source);
 
-    PyGILState_Release(gstate);
+    SWIG_result = libobs_to_py_swig(SWIG_str_obs_source_t,source,0,&py_swig_source);
+
+    if (!SWIG_IsOK(SWIG_result)) {
+        blog(LOG_INFO,
+             "%s:l%i \"SWIG Failed to make required python object: '%s' for '%s'\"",
+             __func__,
+             __LINE__,
+             SWIG_str_obs_source_t,
+             id);
+        goto fail;
+    }
+
+    blog(LOG_INFO, "Source Create");
+    argList = Py_BuildValue("(OO)",py_swig_settings,py_swig_source);
+    data = PyObject_CallObject(py_src->create,argList);
+
+    if(pyHasError()) {
+        goto fail;
+    }
+
+    py_data = bzalloc(sizeof(struct python_data_pair));
+    py_data->data = data;
+    py_data->source = py_src;
     blog(LOG_INFO, "Python Create: %s",id);
+
+fail:
+    Py_XDECREF(argList);
+    Py_XDECREF(py_swig_settings);
+    Py_XDECREF(py_swig_source);
+    PyGILState_Release(gstate);
+failNOGIL:
     return py_data;
 }
+
+
+
+
+
+
 static void py_source_destroy(void* data)
 {
     struct python_data_pair* py_pair = data;
     py_source* py_src = py_pair->source;
-    PyObject* py_data = py_pair->data;
+    
+
+
+    PyObject* argList = NULL;
+    PyObject* py_data = NULL;
+
     PyGILState_STATE gstate;
     gstate = PyGILState_Ensure();
 
-
-    //call python function.
+    //check python function.
     if(!PyCallable_Check(py_src->destroy)) {
         blog(LOG_INFO, "None Callable destroy: %s",py_src->py_source_info->id);
-        PyGILState_Release(gstate);
-        return;
+	goto fail;
     }
 
-
-    PyObject* argList = Py_BuildValue("(O)",py_data);
+    py_data = py_pair->data;
+    argList = Py_BuildValue("(O)",py_data);
     PyObject_CallObject(py_src->destroy,argList);
+    if(pyHasError()){
+         blog(LOG_INFO, "Error destroying python object cleanly");
+    }
+
+ fail:
+
     Py_XDECREF(argList);
     Py_XDECREF(py_data);
-    pyHasError();
+
 
     PyGILState_Release(gstate);
 
@@ -447,30 +506,36 @@ static uint32_t py_source_get_width(void* data)
     struct python_data_pair* py_pair = data;
     py_source* py_src = py_pair->source;
     PyObject* py_data = py_pair->data;
+    long width = 0;
 
+    //Python
+    PyObject* argList = NULL;
+    PyObject* ret = NULL;
 
     PyGILState_STATE gstate;
     gstate = PyGILState_Ensure();
 
-    //call python function.
+    //check python function.
     if(!PyCallable_Check(py_src->get_width)) {
         blog(LOG_INFO, "None Callable get_width: %s",py_src->py_source_info->id);
-        PyGILState_Release(gstate);
-        return 0;
+	goto fail;
+      
     }
 
-    PyObject* argList = Py_BuildValue("(O)",py_data);
-    PyObject* ret = PyObject_CallObject(py_src->get_width,argList);
-
-    long width = 0;
-    pyHasError();
+    argList = Py_BuildValue("(O)",py_data);
+    ret = PyObject_CallObject(py_src->get_width,argList);
+    if(pyHasError()){
+      goto fail;
+    }
     if(PyLong_Check(ret)) {
         width = PyLong_AsLong(ret);
     }
+
+ fail:
     Py_XDECREF(argList);
     Py_XDECREF(ret);
-
     PyGILState_Release(gstate);
+
     return width;
 }
 static const char*  py_source_get_name(void)
@@ -483,58 +548,92 @@ static uint32_t py_source_get_height(void* data)
     struct python_data_pair* py_pair = data;
     py_source* py_src = py_pair->source;
     PyObject* py_data = py_pair->data;
+    long height = 0 ;
+
+    //Python
+    PyObject* argList = NULL;
+    PyObject* ret = NULL;
+
+
     PyGILState_STATE gstate;
     gstate = PyGILState_Ensure();
-    //call python function.
+
+    //check python function.
     if(!PyCallable_Check(py_src->get_height)) {
         blog(LOG_INFO, "None Callable get_height: %s",py_src->py_source_info->id);
-        PyGILState_Release(gstate);
-        return 0;
+	goto fail;
     }
 
-    PyObject* argList = Py_BuildValue("(O)",py_data);
-    PyObject* ret = PyObject_CallObject(py_src->get_height,argList);
-    long height = 0 ;
-    pyHasError();
+    argList = Py_BuildValue("(O)",py_data);
+    ret = PyObject_CallObject(py_src->get_height,argList);
+    
+    if(pyHasError()){
+      goto fail;
+    }
     if(PyLong_Check(ret)) {
         height = PyLong_AsLong(ret);
     }
+
+ fail:
     Py_XDECREF(argList);
     Py_XDECREF(ret);
-
     PyGILState_Release(gstate);
-    //blog(LOG_INFO,"width %i",height);
+
     return height;
 }
 static obs_properties_t* py_source_properties(void* data)
 {
+    
     struct python_data_pair* py_pair = data;
     py_source* py_src = py_pair->source;
     PyObject* py_data = py_pair->data;
+    obs_properties_t* obs_properties = NULL;
+    int SWIG_result = SWIG_OK;
 
+    //SWIG
+    const char* SWIG_str_obs_properties_t = "obs_properties_t *";
+
+    //Python
+    PyObject* py_result = NULL;
+    PyObject* argList = NULL;
+
+    
     PyGILState_STATE gstate;
     gstate = PyGILState_Ensure();
 
-    //call python function.
+
+    //Check python function
     if(!PyCallable_Check(py_src->get_properties)) {
-        blog(LOG_INFO, "None Callable properties: %s",py_src->py_source_info->id);
-        obs_properties_t* props = obs_properties_create();
-        PyGILState_Release(gstate);
-        return props;
+        blog(LOG_INFO, "None Callable get_properties: %s",py_src->py_source_info->id);
+	goto fail;
     }
 
-    PyObject* argList = Py_BuildValue("(O)",py_data);
-    PyObject_CallObject(py_src->get_properties,argList);
-    pyHasError();
+    argList = Py_BuildValue("(O)",py_data);
+    py_result = PyObject_CallObject(py_src->get_properties, argList);
+
+    if(pyHasError()){
+	goto fail;
+    }
+    
+    SWIG_result = py_swig_to_libobs(SWIG_str_obs_properties_t, py_result, &obs_properties);
+    if(!SWIG_IsOK(SWIG_result)){
+      obs_properties = NULL;
+    }
+
+  fail:
+    if( obs_properties == NULL){
+        obs_properties = obs_properties_create();
+    }
     Py_XDECREF(argList);
-
-
+    Py_XDECREF(py_result);
     PyGILState_Release(gstate);
-
-
+    return obs_properties;
 }
 
-static void py_source_get_defaults(obs_data_t* settings) {}
+static void py_source_get_defaults(obs_data_t* settings) {
+  UNUSED_PARAMETER(settings);
+
+}
 static void py_source_update(void* data, obs_data_t* settings)
 {
 
@@ -542,51 +641,77 @@ static void py_source_update(void* data, obs_data_t* settings)
     py_source* py_src = py_pair->source;
     PyObject* py_data = py_pair->data;
 
+    //SWIG
+    const char* SWIG_str_obs_data_t = "obs_data_t *";
+    int SWIG_result = SWIG_OK;
+
+    //Python
+    PyObject* argList = NULL;
+    PyObject* py_swig_settings = NULL;
+
     PyGILState_STATE gstate;
     gstate = PyGILState_Ensure();
 
-    //call python function.
+    //Check python function
     if(!PyCallable_Check(py_src->update)) {
         blog(LOG_INFO, "None Callable update: %s",py_src->py_source_info->id);
-        PyGILState_Release(gstate);
-        return;
+	goto fail;
     }
 
-    PyObject* argList = Py_BuildValue("(O)",py_data);
+    SWIG_result = libobs_to_py_swig(SWIG_str_obs_data_t,settings,0,&py_swig_settings);
+
+    if (!SWIG_IsOK(SWIG_result)) {
+        blog(LOG_INFO,
+             "%s:l%i \"SWIG Failed to make required python object: '%s' for '%s'\"",
+             __func__,
+             __LINE__,
+             SWIG_str_obs_data_t,
+             py_src->py_source_info->id);
+        goto fail;
+    }
+
+    argList = Py_BuildValue("(OO)",py_data,py_swig_settings);
     PyObject_CallObject(py_src->update,argList);
-    pyHasError();
+    if(pyHasError()){
+      goto fail;
+    }
+
+ fail:
+    Py_XDECREF(py_swig_settings);
     Py_XDECREF(argList);
-
-
     PyGILState_Release(gstate);
-
 }
+
 static void py_source_activate(void* data)
 {
 
     struct python_data_pair* py_pair = data;
     py_source* py_src = py_pair->source;
     PyObject* py_data = py_pair->data;
+    
+    //Python
+    PyObject* argList = NULL;
 
     PyGILState_STATE gstate;
     gstate = PyGILState_Ensure();
 
-    //call python function.
+    //Check python function
     if(!PyCallable_Check(py_src->activate)) {
         blog(LOG_INFO, "None Callable activate: %s",py_src->py_source_info->id);
-        PyGILState_Release(gstate);
-        return ;
+	goto fail;
     }
 
-    PyObject* argList = Py_BuildValue("(O)",py_data);
+    argList = Py_BuildValue("(O)",py_data);
     PyObject_CallObject(py_src->activate,argList);
-    pyHasError();
+    if(pyHasError()){
+      goto fail;
+    }
+
+ fail:
     Py_XDECREF(argList);
-
-
     PyGILState_Release(gstate);
-
 }
+
 static void py_source_deactivate(void* data)
 {
 
@@ -594,24 +719,27 @@ static void py_source_deactivate(void* data)
     py_source* py_src = py_pair->source;
     PyObject* py_data = py_pair->data;
 
+    //Python
+    PyObject* argList = NULL;
+
     PyGILState_STATE gstate;
     gstate = PyGILState_Ensure();
 
-    //call python function.
+    //Check python function
     if(!PyCallable_Check(py_src->deactivate)) {
         blog(LOG_INFO, "None Callable deactivate: %s",py_src->py_source_info->id);
-        PyGILState_Release(gstate);
-        return ;
+	goto fail;
     }
 
-    PyObject* argList = Py_BuildValue("(O)",py_data);
+    argList = Py_BuildValue("(O)",py_data);
     PyObject_CallObject(py_src->deactivate,argList);
-    pyHasError();
+    if(pyHasError()){
+      goto fail;
+    }
+
+ fail:
     Py_XDECREF(argList);
-
-
     PyGILState_Release(gstate);
-
 }
 static void py_source_show(void* data)
 {
@@ -620,25 +748,29 @@ static void py_source_show(void* data)
     py_source* py_src = py_pair->source;
     PyObject* py_data = py_pair->data;
 
+    //Python
+    PyObject* argList = NULL;
+
     PyGILState_STATE gstate;
     gstate = PyGILState_Ensure();
 
-    //call python function.
+    //Check python function
     if(!PyCallable_Check(py_src->show)) {
         blog(LOG_INFO, "None Callable show: %s",py_src->py_source_info->id);
-        PyGILState_Release(gstate);
-        return ;
+        goto fail;
     }
 
-    PyObject* argList = Py_BuildValue("(O)",py_data);
+    argList = Py_BuildValue("(O)",py_data);
     PyObject_CallObject(py_src->show,argList);
-    pyHasError();
+    if(pyHasError()) {
+        goto fail;
+    }
+
+fail:
     Py_XDECREF(argList);
-
-
     PyGILState_Release(gstate);
-
 }
+
 static void py_source_hide(void* data)
 {
 
@@ -646,49 +778,54 @@ static void py_source_hide(void* data)
     py_source* py_src = py_pair->source;
     PyObject* py_data = py_pair->data;
 
+    //Python
+    PyObject* argList = NULL;
+
     PyGILState_STATE gstate;
     gstate = PyGILState_Ensure();
 
-    //call python function.
+    //Check python function
     if(!PyCallable_Check(py_src->hide)) {
         blog(LOG_INFO, "None Callable hide: %s",py_src->py_source_info->id);
-        PyGILState_Release(gstate);
-        return;
+	goto fail;
     }
 
-    PyObject* argList = Py_BuildValue("(O)",py_data);
+    argList = Py_BuildValue("(O)",py_data);
     PyObject_CallObject(py_src->hide,argList);
-    pyHasError();
+
+    if(pyHasError()){
+      goto fail;
+    }
+
+ fail:
     Py_XDECREF(argList);
-
-
     PyGILState_Release(gstate);
-
 }
 static void py_source_video_tick(void* data, float seconds)
 {
     struct python_data_pair* py_pair = data;
     py_source* py_src = py_pair->source;
     PyObject* py_data = py_pair->data;
+    
+    //Python
+    PyObject* argList = NULL;
 
     PyGILState_STATE gstate;
     gstate = PyGILState_Ensure();
 
-    //call python function.
+    //Check python function
     if(!PyCallable_Check(py_src->video_tick)) {
         blog(LOG_INFO, "None Callable video_tick: %s",py_src->py_source_info->id);
-        PyGILState_Release(gstate);
-        return ;
+	goto fail;
     }
 
-    PyObject* argList = Py_BuildValue("(O)",py_data);
+    argList = Py_BuildValue("(Of)",py_data,seconds);
     PyObject_CallObject(py_src->video_tick,argList);
+
+ fail:
     pyHasError();
     Py_XDECREF(argList);
-
-
     PyGILState_Release(gstate);
-
 }
 static void py_source_video_render(void* data, gs_effect_t* effect)
 {
@@ -697,111 +834,213 @@ static void py_source_video_render(void* data, gs_effect_t* effect)
     py_source* py_src = py_pair->source;
     PyObject* py_data = py_pair->data;
 
+    //SWIG
+    int SWIG_result = SWIG_OK;
+    const char *SWIG_str_gs_effect_t = "gs_effect_t *";
+
+    //Python
+    PyObject* py_swig_effect = NULL;
+    PyObject* argList = NULL;
+
     PyGILState_STATE gstate;
     gstate = PyGILState_Ensure();
 
-    //call python function.
+    //Check python function
     if(!PyCallable_Check(py_src->video_render)) {
         blog(LOG_INFO, "None Callable video_render: %s",py_src->py_source_info->id);
         PyGILState_Release(gstate);
         return ;
     }
 
-
     /*Create SWIG effect object*/
-    PyObject* swig_effect = SWIG_Python_NewPointerObj(NULL,SWIG_as_voidptr(effect),
-                                                      SWIGTYPE_p_gs_effect,  0 );
-    PyObject* argList = Py_BuildValue("(OO)",py_data,swig_effect);
+    SWIG_result = libobs_to_py_swig(SWIG_str_gs_effect_t,effect,0,&py_swig_effect);
+    if(!SWIG_IsOK(SWIG_result)){
+      goto fail;
+    }
 
+    argList = Py_BuildValue("(OO)",py_data,py_swig_effect);
     PyObject_CallObject(py_src->video_render,argList);
-    pyHasError();
+    if(pyHasError()){
+      goto fail;
+    }
+
+ fail:
     Py_XDECREF(argList);
-    Py_XDECREF(swig_effect);
-
-
-
-
+    Py_XDECREF(py_swig_effect);
     PyGILState_Release(gstate);
 
 }
 static struct obs_source_frame* py_source_filter_video(void* data,
-                                                       const struct obs_source_frame* frame)
+                                                       struct obs_source_frame* frame)
 {
 
     struct python_data_pair* py_pair = data;
     py_source* py_src = py_pair->source;
+    
     PyObject* py_data = py_pair->data;
+    struct obs_source_frame* new_frame = NULL;
+
+
+    //SWIG
+    int SWIG_result = SWIG_OK;
+    const char* SWIG_str_obs_source_frame = "obs_source_frame *";
+
+    //Python
+    PyObject* argList = NULL;
+    PyObject* py_frame = NULL;
+    PyObject* py_ret = NULL;
 
     PyGILState_STATE gstate;
     gstate = PyGILState_Ensure();
 
-    //call python function.
+    //Check python function
     if(!PyCallable_Check(py_src->filter_video)) {
         blog(LOG_INFO, "None Callable filter_video: %s",py_src->py_source_info->id);
-        PyGILState_Release(gstate);
-        return NULL;
+	goto fail;
+    }
+    
+    SWIG_result = libobs_to_py_swig(SWIG_str_obs_source_frame, (void*)frame, 0, &py_frame);
+
+    if (!SWIG_IsOK(SWIG_result)) {
+        blog(LOG_INFO,
+             "%s:l%i \"SWIG Failed to make required python object: '%s' for '%s'\"",
+             __func__,
+             __LINE__,
+             SWIG_str_obs_source_frame,
+             py_src->py_source_info->id);
+        goto fail;
     }
 
-    PyObject* argList = Py_BuildValue("(O)",py_data);
-    PyObject_CallObject(py_src->filter_video,argList);
-    pyHasError();
+    argList = Py_BuildValue("(OO)",py_data,py_frame);
+    py_ret = PyObject_CallObject(py_src->filter_video,argList);
+    
+    if(pyHasError() || py_ret == Py_None ){
+      goto fail;
+    }
+    
+    
+    SWIG_result = py_swig_to_libobs(SWIG_str_obs_source_frame, py_ret, new_frame);
+
+    if (!SWIG_IsOK(SWIG_result)) {
+        blog(LOG_INFO,
+             "%s:l%i \"SWIG Failed to convert to libobs object: '%s' for '%s'\"",
+             __func__,
+             __LINE__,
+             SWIG_str_obs_source_frame,
+             py_src->py_source_info->id);
+        goto fail;
+    }
+
+ fail:
+    if ( new_frame == NULL ){
+      new_frame = (void*)frame;
+    }
+    Py_XDECREF(py_ret);
     Py_XDECREF(argList);
-
-    //SWIG_ConvertPtr(swig_gs_tex,&tex,SWIGTYPE_p_gs_texture,0);
+    Py_XDECREF(py_frame);
     PyGILState_Release(gstate);
-
+    return new_frame;
 }
 static struct obs_audio_data* py_source_filter_audio(void* data,
-                                                     const struct obs_audio_data* audio)
+                                                      struct obs_audio_data* audio)
 {
 
     struct python_data_pair* py_pair = data;
     py_source* py_src = py_pair->source;
     PyObject* py_data = py_pair->data;
 
+
+    struct obs_audio_data* new_audio = NULL;
+
+
+    //SWIG
+    int SWIG_result = SWIG_OK;
+    const char* SWIG_str_obs_audio_data = "obs_audio_data *";
+
+    //Python
+    PyObject* argList = NULL;
+    PyObject* py_ret = NULL;
+    PyObject* py_audio = NULL;
+
+
     PyGILState_STATE gstate;
     gstate = PyGILState_Ensure();
 
-    //call python function.
+    //Check python function
     if(!PyCallable_Check(py_src->filter_audio)) {
         blog(LOG_INFO, "None Callable filter_audio: %s",py_src->py_source_info->id);
-        PyGILState_Release(gstate);
-        return NULL;
+	goto fail;
     }
 
-    PyObject* argList = Py_BuildValue("(O)",py_data);
-    PyObject_CallObject(py_src->filter_audio,argList);
-    pyHasError();
+    SWIG_result = libobs_to_py_swig(SWIG_str_obs_audio_data, (void*)audio, 0, &py_audio);
+
+    if (!SWIG_IsOK(SWIG_result)) {
+        blog(LOG_INFO,
+             "%s:l%i \"SWIG Failed to make required python object: '%s' for '%s'\"",
+             __func__,
+             __LINE__,
+             SWIG_str_obs_audio_data,
+	     py_src->py_source_info->id);
+        goto fail;
+    }
+
+    argList = Py_BuildValue("(O)",py_data);
+    py_ret = PyObject_CallObject(py_src->filter_audio,argList);
+
+    if(pyHasError() || py_ret == Py_None){
+      goto fail;
+    }
+
+    SWIG_result = py_swig_to_libobs(SWIG_str_obs_audio_data, py_ret, new_audio);
+
+    if (!SWIG_IsOK(SWIG_result)) {
+        blog(LOG_INFO,
+             "%s:l%i \"SWIG Failed to convert to libobs object: '%s' for '%s'\"",
+             __func__,
+             __LINE__,
+             SWIG_str_obs_audio_data,
+	     py_src->py_source_info->id);
+        goto fail;
+    }
+
+
+ fail:
+    if(new_audio == NULL){
+      new_audio = (void*)audio;
+    }
     Py_XDECREF(argList);
-
-
     PyGILState_Release(gstate);
-
+    return new_audio;
 }
 static void py_source_enum_sources(void* data,
                                    obs_source_enum_proc_t enum_callback,void* param)
 {
 
+    UNUSED_PARAMETER(enum_callback);
+    UNUSED_PARAMETER(param);
+  
     struct python_data_pair* py_pair = data;
     py_source* py_src = py_pair->source;
     PyObject* py_data = py_pair->data;
 
+
+    PyObject* argList = NULL;
+
     PyGILState_STATE gstate;
     gstate = PyGILState_Ensure();
 
-    //call python function.
+    //Check python function
     if(!PyCallable_Check(py_src->enum_sources)) {
         blog(LOG_INFO, "None Callable enum_sources: %s",py_src->py_source_info->id);
-        PyGILState_Release(gstate);
-        return ;
+	goto fail;
     }
 
-    PyObject* argList = Py_BuildValue("(O)",py_data);
+    argList = Py_BuildValue("(O)",py_data);
     PyObject_CallObject(py_src->enum_sources,argList);
     pyHasError();
+
+ fail:
     Py_XDECREF(argList);
-
-
     PyGILState_Release(gstate);
 
 }
@@ -812,126 +1051,243 @@ static void py_source_save(void* data,obs_data_t* settings)
     py_source* py_src = py_pair->source;
     PyObject* py_data = py_pair->data;
 
+    //SWIG
+    int SWIG_result = SWIG_OK;
+    const char* SWIG_str_obs_data_t = "obs_data_t *";
+
+    //Python
+    PyObject* argList = NULL;
+    PyObject* py_swig_settings = NULL;
+    
+
     PyGILState_STATE gstate;
     gstate = PyGILState_Ensure();
 
-    //call python function.
+    //Check python function
     if(!PyCallable_Check(py_src->save)) {
         blog(LOG_INFO, "None Callable save: %s",py_src->py_source_info->id);
-        PyGILState_Release(gstate);
-        return ;
+	goto fail;
+    }
+    
+    SWIG_result = libobs_to_py_swig(SWIG_str_obs_data_t, settings, 0, &py_swig_settings);
+
+    if (!SWIG_IsOK(SWIG_result)) {
+        blog(LOG_INFO,
+             "%s:l%i \"SWIG Failed to make required python object: '%s' for '%s'\"",
+             __func__,
+             __LINE__,
+             SWIG_str_obs_data_t,
+             py_src->py_source_info->id);
+        goto fail;
     }
 
-    PyObject* argList = Py_BuildValue("(O)",py_data);
+
+    argList = Py_BuildValue("(OO)",py_data);
     PyObject_CallObject(py_src->save,argList);
-    pyHasError();
+    if(pyHasError()){
+      goto fail;
+    }
+
+ fail:
     Py_XDECREF(argList);
-
-
+    Py_XDECREF(py_swig_settings);
     PyGILState_Release(gstate);
-
 }
-static void py_source_load(void* data,obs_data_t* settings)
+
+static void py_source_load(void* data, obs_data_t* settings)
 {
     struct python_data_pair* py_pair = data;
     py_source* py_src = py_pair->source;
     PyObject* py_data = py_pair->data;
 
+    //SWIG
+    int SWIG_result = SWIG_OK;
+    const char* SWIG_str_obs_data_t = "obs_data_t *";
+
+    //Python
+    PyObject* argList = NULL;
+    PyObject* py_swig_settings = NULL;
+
     PyGILState_STATE gstate;
     gstate = PyGILState_Ensure();
 
-    //call python function.
+    //Check python function
     if(!PyCallable_Check(py_src->load)) {
         blog(LOG_INFO, "None Callable load: %s",py_src->py_source_info->id);
-        PyGILState_Release(gstate);
-        return;
+	goto fail;
     }
 
-    PyObject* argList = Py_BuildValue("(O)",py_data);
+    SWIG_result = libobs_to_py_swig(SWIG_str_obs_data_t, settings, 0, &py_swig_settings);
+
+    if (!SWIG_IsOK(SWIG_result)) {
+        blog(LOG_INFO,
+             "%s:l%i \"SWIG Failed to make required python object: '%s' for '%s'\"",
+             __func__,
+             __LINE__,
+             SWIG_str_obs_data_t,
+             py_src->py_source_info->id);
+        goto fail;
+    }
+
+    argList = Py_BuildValue("(OO)",py_data,py_swig_settings);
     PyObject_CallObject(py_src->load,argList);
-    pyHasError();
+    if(pyHasError()){
+      goto fail;
+    }
+
+ fail:
+    Py_XDECREF(py_swig_settings);
     Py_XDECREF(argList);
-
-
     PyGILState_Release(gstate);
-
 }
 static void py_source_mouse_click(void* data,
-                                  const struct obs_mouse_event* event, int32_t type,bool mouse_up,
+                                  const struct obs_mouse_event* event, 
+				  int32_t type,
+				  bool mouse_up,
                                   uint32_t click_count)
 {
     struct python_data_pair* py_pair = data;
     py_source* py_src = py_pair->source;
     PyObject* py_data = py_pair->data;
 
+    //SWIG
+    const char* SWIG_str_obs_mouse_event = "obs_mouse_event *";
+    int SWIG_result = SWIG_OK;
+
+    //Python
+    PyObject* argList = NULL;
+    PyObject* py_swig_event = NULL;
+
     PyGILState_STATE gstate;
     gstate = PyGILState_Ensure();
 
-    //call python function.
+    //Check python function
     if(!PyCallable_Check(py_src->mouse_click)) {
         blog(LOG_INFO, "None Callable mouuse_click: %s",py_src->py_source_info->id);
-        PyGILState_Release(gstate);
-        return;
+	goto fail;
     }
 
-    PyObject* argList = Py_BuildValue("(O)",py_data);
+    SWIG_result = libobs_to_py_swig(SWIG_str_obs_mouse_event, (void*)event, 0, &py_swig_event);
+
+    if (!SWIG_IsOK(SWIG_result)) {
+        blog(LOG_INFO,
+             "%s:l%i \"SWIG Failed to make required python object: '%s' for '%s'\"",
+             __func__,
+             __LINE__,
+             SWIG_str_obs_mouse_event,
+             py_src->py_source_info->id);
+        goto fail;
+    }
+
+    argList = Py_BuildValue("(Oipi)", py_data, type,mouse_up, click_count);
     PyObject_CallObject(py_src->mouse_click,argList);
-    pyHasError();
+    if(pyHasError()){
+      goto fail;
+    }
+
+ fail:
     Py_XDECREF(argList);
-
-
+    Py_XDECREF(py_swig_event);
     PyGILState_Release(gstate);
 
 }
-static void py_source_mouse_move(void* data,const struct obs_mouse_event* event,
+static void py_source_mouse_move(void* data,
+				 const struct obs_mouse_event* event,
                                  bool mouse_leave)
 {
     struct python_data_pair* py_pair = data;
     py_source* py_src = py_pair->source;
     PyObject* py_data = py_pair->data;
 
+    //SWIG
+    const char* SWIG_str_obs_mouse_event = "obs_mouse_event *";
+    int SWIG_result = SWIG_OK;
+
+    //Python
+    PyObject* argList = NULL;
+    PyObject* py_swig_event = NULL;
+
+
     PyGILState_STATE gstate;
     gstate = PyGILState_Ensure();
 
-    //call python function.
+    //Check python function
     if(!PyCallable_Check(py_src->create)) {
         blog(LOG_INFO, "None Callable mouse_move: %s",py_src->py_source_info->id);
-        PyGILState_Release(gstate);
-        return ;
+	goto fail;
     }
 
-    PyObject* argList = Py_BuildValue("(O)",py_data);
+    SWIG_result = libobs_to_py_swig(SWIG_str_obs_mouse_event, (void*)event, 0, &py_swig_event);
+
+    if (!SWIG_IsOK(SWIG_result)) {
+        blog(LOG_INFO,
+             "%s:l%i \"SWIG Failed to make required python object: '%s' for '%s'\"",
+             __func__,
+             __LINE__,
+             SWIG_str_obs_mouse_event,
+             py_src->py_source_info->id);
+        goto fail;
+    }
+
+    argList = Py_BuildValue("(OOp)", py_data, py_swig_event, mouse_leave);
     PyObject_CallObject(py_src->create,argList);
-    pyHasError();
+    if(pyHasError()){
+      goto fail;
+    }
+ fail:
+    Py_XDECREF(py_swig_event);
     Py_XDECREF(argList);
-
-
     PyGILState_Release(gstate);
 
 }
 static void py_source_mouse_wheel(void* data,
-                                  const struct obs_mouse_event* event, int x_delta,int y_delta)
+                                  const struct obs_mouse_event* event, 
+				  int x_delta,
+				  int y_delta)
 {
     struct python_data_pair* py_pair = data;
     py_source* py_src = py_pair->source;
     PyObject* py_data = py_pair->data;
 
+    //SWIG
+    const char* SWIG_str_obs_mouse_event = "obs_mouse_event *";
+    int SWIG_result = SWIG_OK;
+
+    //Python
+    PyObject* argList = NULL;
+    PyObject* py_swig_event = NULL;
+
     PyGILState_STATE gstate;
     gstate = PyGILState_Ensure();
-    //call python function.
+
+    //Check python function
     if(!PyCallable_Check(py_src->mouse_wheel)) {
         blog(LOG_INFO, "None Callable mouse_wheel: %s",py_src->py_source_info->id);
-        PyGILState_Release(gstate);
-        return ;
+	goto fail;
     }
 
-    PyObject* argList = Py_BuildValue("(O)",py_data);
+    SWIG_result = libobs_to_py_swig(SWIG_str_obs_mouse_event, (void*)event, 0, &py_swig_event);
+
+    if (!SWIG_IsOK(SWIG_result)) {
+        blog(LOG_INFO,
+             "%s:l%i \"SWIG Failed to make required python object: '%s' for '%s'\"",
+             __func__,
+             __LINE__,
+             SWIG_str_obs_mouse_event,
+             py_src->py_source_info->id);
+        goto fail;
+    }
+
+    argList = Py_BuildValue("(OOii)", py_data, py_swig_event, x_delta, y_delta);
     PyObject_CallObject(py_src->mouse_wheel,argList);
-    pyHasError();
+    if(pyHasError()){
+      goto fail;
+    }
+
+ fail:
     Py_XDECREF(argList);
-
+    Py_XDECREF(py_swig_event);
     PyGILState_Release(gstate);
-
 }
 static void py_source_focus(void* data,bool focus)
 {
@@ -939,48 +1295,78 @@ static void py_source_focus(void* data,bool focus)
     py_source* py_src = py_pair->source;
     PyObject* py_data = py_pair->data;
 
-    PyGILState_STATE gstate;
+    //Python
+    PyObject* argList = NULL;
 
+    PyGILState_STATE gstate;
     gstate = PyGILState_Ensure();
-    //call python function.
+
+    //Check python function
     if(!PyCallable_Check(py_src->focus)) {
         blog(LOG_INFO, "None Callable focus: %s",py_src->py_source_info->id);
-        PyGILState_Release(gstate);
-        return ;
+	goto fail;
     }
 
-    PyObject* argList = Py_BuildValue("(O)",py_data);
+    argList = Py_BuildValue("(Op)",py_data, focus);
     PyObject_CallObject(py_src->focus,argList);
-    pyHasError();
-    Py_XDECREF(argList);
+    if(pyHasError()){
+      goto fail;
+    }
 
+ fail:
+    Py_XDECREF(argList);
     PyGILState_Release(gstate);
 
 }
-static void py_source_key_click(void* data,const struct obs_key_event* event,
+static void py_source_key_click(void* data,
+				const struct obs_key_event* event,
                                 bool key_up)
 {
     struct python_data_pair* py_pair = data;
     py_source* py_src = py_pair->source;
     PyObject* py_data = py_pair->data;
 
-    PyGILState_STATE gstate;
+    //SWIG
+    const char* SWIG_str_obs_key_event = "obs_key_event *";
+    int SWIG_result = SWIG_OK;
 
+    //Python
+    PyObject* argList = NULL;
+    PyObject* py_swig_event = NULL;
+
+
+    PyGILState_STATE gstate;
     gstate = PyGILState_Ensure();
-    //call python function.
+
+    //Check python function
     if(!PyCallable_Check(py_src->key_click)) {
         blog(LOG_INFO, "None Callable key_click: %s",py_src->py_source_info->id);
-        PyGILState_Release(gstate);
-        return ;
+	goto fail;
     }
 
-    PyObject* argList = Py_BuildValue("(O)",py_data);
+
+    SWIG_result = libobs_to_py_swig(SWIG_str_obs_key_event, (void*)event, 0, &py_swig_event);
+
+    if (!SWIG_IsOK(SWIG_result)) {
+        blog(LOG_INFO,
+             "%s:l%i \"SWIG Failed to make required python object: '%s' for '%s'\"",
+             __func__,
+             __LINE__,
+             SWIG_str_obs_key_event,
+             py_src->py_source_info->id);
+        goto fail;
+    }
+
+    argList = Py_BuildValue("(OOp)", py_data, py_swig_event, key_up );
     PyObject_CallObject(py_src->key_click,argList);
-    pyHasError();
+    if(pyHasError()){
+	goto fail;
+    }
+
+ fail:
     Py_XDECREF(argList);
-
+    Py_XDECREF(py_swig_event);
     PyGILState_Release(gstate);
-
 }
 
 
@@ -992,47 +1378,38 @@ static void py_to_obs_source_info(py_source* py_info)
 
     /*Should probably check that no other source already has this id*/
     struct obs_source_info* info = py_info->py_source_info;
-    info->id = PyUnicode_AsUTF8(py_info->id);
-
-    info->type =  PyLong_AsLong(py_info->type);
-
-    info->output_flags = PyLong_AsLong(py_info->flags);
+    info->id               = PyUnicode_AsUTF8(py_info->id);
+    info->type             = PyLong_AsLong(py_info->type);
+    info->output_flags     = PyLong_AsLong(py_info->flags);
 
     //These functions suck.
-    info->get_name = py_source_get_name;
-    info->get_defaults = py_source_get_defaults;
+    info->get_name         = py_source_get_name;
+    info->get_defaults     = py_source_get_defaults;
 
     /*The rest of the function pointers point to generic function that use void *data .*/
-    info->create = py_source_create;
-    info->destroy = py_source_destroy;
-    info->get_width = py_source_get_width;
-    info->get_height = py_source_get_height;
-    info->get_properties = py_source_properties;
-    info->update = py_source_update;
-    info->activate = py_source_activate;
-    info->deactivate = py_source_deactivate;
-    info->show  = py_source_show;
-    info->hide  = py_source_hide;
-    info->video_tick  = py_source_video_tick;
-    info->video_render  = py_source_video_render;
-    info->filter_video  = py_source_filter_video;
-    info->filter_audio = py_source_filter_audio;
-    info->enum_sources  = py_source_enum_sources;
-    info->save =   py_source_save;
-    info->load  = py_source_load;
-    info->mouse_click =  py_source_mouse_click;
-    info->mouse_move  = py_source_mouse_move;
-    info->mouse_wheel = py_source_mouse_wheel;
-    info->focus  = py_source_focus;
-    info->key_click  = py_source_key_click;
+    info->create           = py_source_create;
+    info->destroy          = py_source_destroy;
+    info->get_width        = py_source_get_width;
+    info->get_height       = py_source_get_height;
+    info->get_properties   = py_source_properties;
+    info->update           = py_source_update;
+    info->activate         = py_source_activate;
+    info->deactivate       = py_source_deactivate;
+    info->show             = py_source_show;
+    info->hide             = py_source_hide;
+    info->video_tick       = py_source_video_tick;
+    info->video_render     = py_source_video_render;
+    info->filter_video     = py_source_filter_video;
+    info->filter_audio     = py_source_filter_audio;
+    info->enum_sources     = py_source_enum_sources;
+    info->save             = py_source_save;
+    info->load             = py_source_load;
+    info->mouse_click      = py_source_mouse_click;
+    info->mouse_move       = py_source_mouse_move;
+    info->mouse_wheel      = py_source_mouse_wheel;
+    info->focus            = py_source_focus;
+    info->key_click        = py_source_key_click;
 
 };
-
-
-
-
-
-
-
 
 

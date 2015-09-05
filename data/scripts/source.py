@@ -1,5 +1,6 @@
 import os
-import libobs
+import obspython as libobs
+#import pygame
 from random import randint
 
 
@@ -26,8 +27,11 @@ class MySource():
         print (self.tex)
     @staticmethod
     def create(settings,source):
+        print(settings)
+        print(source)
         return MySource()    
     def render(self,effect):
+        libobs.blog("render")
         rand = randint(0,255)
         self.SetColour(rand,
                        rand,
@@ -58,6 +62,12 @@ class MySource():
         libobs.obs_enter_graphics()
         libobs.gs_texture_destroy(self.tex)
         libobs.obs_leave_graphics()
+    def get_properties(self):
+        a = libobs.obs_properties_create()
+        print (a) 
+        return a
+
+
     def SetColour(self,r,g,b,a):
         for i in range(0,self.width*self.height*self.bpp,self.bpp):
             self.pixelbuffer[i] = b  #blue
@@ -67,14 +77,20 @@ class MySource():
 
 
 def register():
-    print(os.getcwd())
-    src = libobs.Source()
+    #print(os.getcwd())
+    #print(src)
+    src = libobs.obs_source_info()
+    print(src)
+    print (src.id)
     src.create = MySource.create
     src.video_render = MySource.render
     src.video_tick = MySource.tick
     src.get_height = MySource.get_height
     src.get_width = MySource.get_width
     src.destroy = MySource.destroy
+#    src.get_properties = MySource.get_properties
+    
     libobs.obs_register_source(src)
+    libobs.blog("###################################################################")
     print ("Registered MySource")
 
