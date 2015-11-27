@@ -71,12 +71,9 @@ py_obs_register_source(PyObject* self, PyObject* args)
     py_to_obs_source_info(py_src);
 
     obs_register_source(py_src->py_source_info);
+    
+    //Make sure the object stays around.
     Py_INCREF(py_src);
-
-    //Need to keep list of the registered source objects
-    // 1 Stops python garbage collecting them
-    // 2 Lets us destroy them at module unload 
-    list_add_source(py_src);
 
     Py_RETURN_NONE;
 }

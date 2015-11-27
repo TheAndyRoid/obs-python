@@ -1,5 +1,5 @@
 /********************************************************************************
-Copyright (C) 2014 Andrew Skinner <obs@theandyroid.com>
+Copyright (C) 2015 Andrew Skinner <obs@theandyroid.com>
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -32,7 +32,7 @@ typedef struct {
     PyObject* id;
     PyObject* type;
     PyObject* flags;
-    PyObject* name;
+    PyObject* get_name;
     PyObject* create;
     PyObject* destroy;
     PyObject* get_width;
@@ -57,7 +57,9 @@ typedef struct {
     PyObject* focus;
     PyObject* key_click;
     PyObject* data;
+    /* C types below this point*/
     struct obs_source_info* py_source_info;
+    char* name;
 } py_source;
 
 
@@ -76,12 +78,6 @@ struct python_data_pair {
 };
 
 
-py_source* list_remove_source(const char* id,py_source* self);
-struct python_source* list_find_source(const char* id);
-void list_add_source(py_source* src);
-
-
-
 
 
 static void
@@ -91,7 +87,7 @@ py_source_dealloc(py_source* self)
     Py_XDECREF(self->data);
     Py_XDECREF(self->type);
     Py_XDECREF(self->flags);
-    Py_XDECREF(self->name);
+    Py_XDECREF(self->get_name);
     Py_XDECREF(self->create);
     Py_XDECREF(self->destroy);
     Py_XDECREF(self->get_width);
@@ -116,8 +112,9 @@ py_source_dealloc(py_source* self)
     Py_XDECREF(self->focus);
     Py_XDECREF(self->key_click);
 
-    list_remove_source(self->py_source_info->id,self);
     bfree(self->py_source_info);
+    bfree(self->name);
+    
     Py_TYPE(self)->tp_free((PyObject*)self);
 }
 
@@ -149,8 +146,8 @@ static PyObject* py_source_new(PyTypeObject* type, PyObject* args,
             Py_DECREF(self);
             return NULL;
         }
-        self->name = PyUnicode_FromString("Python-Default");
-        if (self->id == NULL) {
+        self->get_name = Py_BuildValue("");
+        if (self->get_name == NULL) {
             Py_DECREF(self);
             return NULL;
         }
@@ -178,7 +175,7 @@ static PyObject* py_source_new(PyTypeObject* type, PyObject* args,
         self->get_height = Py_BuildValue("");
         if (self->get_height == NULL) {
             Py_DECREF(self);
-            return NULL;
+            return NULL; 
         }
         self->get_defaults = Py_BuildValue("");
         if (self->get_defaults == NULL) {
@@ -279,6 +276,7 @@ static PyObject* py_source_new(PyTypeObject* type, PyObject* args,
 
     }
 
+    self->name = bstrdup("Default Python Script");
     self->py_source_info = bzalloc(sizeof(struct obs_source_info));
     return (PyObject*)self;
 
@@ -309,6 +307,7 @@ static PyMemberDef py_source_members[] = {
     {"flags",T_OBJECT_EX, offsetof(py_source, flags), 0,"flags" },
     {"create",T_OBJECT_EX, offsetof(py_source, create), 0,"create" },
     {"destroy",T_OBJECT_EX, offsetof(py_source, destroy), 0,"destroy" },
+    {"get_name",T_OBJECT_EX, offsetof(py_source, get_name), 0,"get_name" },
     {"get_width",T_OBJECT_EX, offsetof(py_source, get_width), 0,"get_width" },
     {"get_height",T_OBJECT_EX, offsetof(py_source, get_height), 0,"get_height" },
     {"get_defaults",T_OBJECT_EX, offsetof(py_source, get_defaults), 0,"get_defaults" },
@@ -396,11 +395,7 @@ static void* py_source_create(obs_data_t* settings, obs_source_t* source)
     PyObject* py_swig_settings = NULL;
     PyObject* py_swig_source = NULL;
 
-    struct python_source* pythonsource = list_find_source(id);
-    if( !pythonsource) {
-        goto failNOGIL;
-    }
-    py_source* py_src = pythonsource->source;
+    py_source* py_src = source->info.type_data;
 
 
     PyGILState_STATE gstate;
@@ -412,7 +407,7 @@ static void* py_source_create(obs_data_t* settings, obs_source_t* source)
         goto fail;
     }
 
-    SWIG_result =  libobs_to_py_swig(SWIG_str_obs_data_t,settings,0,&py_swig_settings);
+    SWIG_result = libobs_to_py_swig(SWIG_str_obs_data_t,settings,0,&py_swig_settings);
 
     if (!SWIG_IsOK(SWIG_result)) {
         blog(LOG_INFO,
@@ -447,6 +442,7 @@ static void* py_source_create(obs_data_t* settings, obs_source_t* source)
     py_data = bzalloc(sizeof(struct python_data_pair));
     py_data->data = data;
     py_data->source = py_src;
+    Py_INCREF(py_src);
     blog(LOG_INFO, "Python Create: %s",id);
 
 fail:
@@ -454,7 +450,6 @@ fail:
     Py_XDECREF(py_swig_settings);
     Py_XDECREF(py_swig_source);
     PyGILState_Release(gstate);
-failNOGIL:
     return py_data;
 }
 
@@ -486,13 +481,15 @@ static void py_source_destroy(void* data)
     argList = Py_BuildValue("(O)",py_data);
     PyObject_CallObject(py_src->destroy,argList);
     if(pyHasError()){
-         blog(LOG_INFO, "Error destroying python object cleanly");
+         blog(LOG_INFO, "Error destroying python object cleanly, this could get messy");
     }
 
  fail:
 
     Py_XDECREF(argList);
     Py_XDECREF(py_data);
+    
+    Py_XDECREF(py_src);
 
 
     PyGILState_Release(gstate);
@@ -538,10 +535,47 @@ static uint32_t py_source_get_width(void* data)
 
     return width;
 }
-static const char*  py_source_get_name(void)
+static const char* py_source_get_name(void* data)
 {
-    return "CustomPython";
+    py_source* py_src = data;
+
+    PyObject *argList = NULL;
+    PyObject *ret = NULL;
+
+    PyGILState_STATE gstate;
+    gstate = PyGILState_Ensure();
+
+    //check python function.
+    if(!PyCallable_Check(py_src->get_name)) {
+        blog(LOG_INFO, "None Callable get_name: %s",py_src->py_source_info->id);
+	goto fail;
+    }
+
+    argList = Py_BuildValue("()");
+    ret = PyObject_CallObject(py_src->get_name,argList);
+    
+    if(pyHasError()){
+      goto fail;
+    }
+
+    if(PyUnicode_Check(ret)) {
+      
+      char* utf8_name = PyUnicode_AsUTF8(ret);
+      if(pyHasError() || utf8_name == NULL){
+	goto fail;
+      }
+      
+      bfree(py_src->name);
+      py_src->name = bstrdup(utf8_name);  
+    }
+
+ fail:
+    Py_XDECREF(argList);
+    Py_XDECREF(ret);
+    PyGILState_Release(gstate);
+    return py_src->name;
 }
+
 static uint32_t py_source_get_height(void* data)
 {
 
@@ -588,10 +622,11 @@ static obs_properties_t* py_source_properties(void* data)
     py_source* py_src = py_pair->source;
     PyObject* py_data = py_pair->data;
     obs_properties_t* obs_properties = NULL;
-    int SWIG_result = SWIG_OK;
+
 
     //SWIG
     const char* SWIG_str_obs_properties_t = "obs_properties_t *";
+    int SWIG_result = SWIG_OK;
 
     //Python
     PyObject* py_result = NULL;
@@ -1052,14 +1087,13 @@ static void py_source_save(void* data,obs_data_t* settings)
     PyObject* py_data = py_pair->data;
 
     //SWIG
-    int SWIG_result = SWIG_OK;
     const char* SWIG_str_obs_data_t = "obs_data_t *";
+    int SWIG_result = SWIG_OK;
 
     //Python
     PyObject* argList = NULL;
     PyObject* py_swig_settings = NULL;
     
-
     PyGILState_STATE gstate;
     gstate = PyGILState_Ensure();
 
@@ -1082,7 +1116,7 @@ static void py_source_save(void* data,obs_data_t* settings)
     }
 
 
-    argList = Py_BuildValue("(OO)",py_data);
+    argList = Py_BuildValue("(OO)",py_data,py_swig_settings);
     PyObject_CallObject(py_src->save,argList);
     if(pyHasError()){
       goto fail;
@@ -1212,7 +1246,7 @@ static void py_source_mouse_move(void* data,
     gstate = PyGILState_Ensure();
 
     //Check python function
-    if(!PyCallable_Check(py_src->create)) {
+    if(!PyCallable_Check(py_src->mouse_move)) {
         blog(LOG_INFO, "None Callable mouse_move: %s",py_src->py_source_info->id);
 	goto fail;
     }
@@ -1229,7 +1263,7 @@ static void py_source_mouse_move(void* data,
         goto fail;
     }
 
-    argList = Py_BuildValue("(OOp)", py_data, py_swig_event, mouse_leave);
+    argList = Py_BuildValue("(OOO)", py_data, py_swig_event, mouse_leave? Py_True : Py_False);
     PyObject_CallObject(py_src->create,argList);
     if(pyHasError()){
       goto fail;
@@ -1307,7 +1341,8 @@ static void py_source_focus(void* data,bool focus)
 	goto fail;
     }
 
-    argList = Py_BuildValue("(Op)",py_data, focus);
+    
+    argList = Py_BuildValue("(OO)",py_data, focus ? Py_True : Py_False);
     PyObject_CallObject(py_src->focus,argList);
     if(pyHasError()){
       goto fail;
@@ -1357,7 +1392,7 @@ static void py_source_key_click(void* data,
         goto fail;
     }
 
-    argList = Py_BuildValue("(OOp)", py_data, py_swig_event, key_up );
+    argList = Py_BuildValue("(OOO)", py_data, py_swig_event, key_up ? Py_True : Py_False);
     PyObject_CallObject(py_src->key_click,argList);
     if(pyHasError()){
 	goto fail;
@@ -1371,8 +1406,20 @@ static void py_source_key_click(void* data,
 
 
 
+static void py_source_free_type_data(void* data){
 
-//Only called in a python function.
+
+    PyGILState_STATE gstate;
+    gstate = PyGILState_Ensure();
+    //This should mark it ready for python destruction 
+    Py_XDECREF(data);
+    
+    PyGILState_Release(gstate);
+}
+
+
+
+//Only called in a python function and by us.
 static void py_to_obs_source_info(py_source* py_info)
 {
 
@@ -1382,13 +1429,14 @@ static void py_to_obs_source_info(py_source* py_info)
     info->type             = PyLong_AsLong(py_info->type);
     info->output_flags     = PyLong_AsLong(py_info->flags);
 
-    //These functions suck.
-    info->get_name         = py_source_get_name;
+
+    //This function sucks
     info->get_defaults     = py_source_get_defaults;
 
     /*The rest of the function pointers point to generic function that use void *data .*/
     info->create           = py_source_create;
     info->destroy          = py_source_destroy;
+    info->get_name         = py_source_get_name;
     info->get_width        = py_source_get_width;
     info->get_height       = py_source_get_height;
     info->get_properties   = py_source_properties;
@@ -1410,6 +1458,9 @@ static void py_to_obs_source_info(py_source* py_info)
     info->focus            = py_source_focus;
     info->key_click        = py_source_key_click;
 
+    //register the type_data and its corrisponding free
+    info->type_data        = py_info;
+    info->free_type_data   = py_source_free_type_data;
 };
 
 

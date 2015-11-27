@@ -23,7 +23,11 @@ SET_SOURCE_FILES_PROPERTIES(libobs.i PROPERTIES SWIG_FLAGS "-py3")
 SET_SOURCE_FILES_PROPERTIES(libobs.i PROPERTIES SWIG_FLAGS "-DSWIG_TYPE_TABLE=obspython")
 
 
+add_library(obs-python-shared SHARED IMPORTED)
+set_property(TARGET obs-python-shared PROPERTY IMPORTED_LOCATION ${CMAKE_CURRENT_BINARY_DIR}/../obs-python.so )
+
+
 SWIG_ADD_MODULE(obspython python obspython.i)
-SWIG_LINK_LIBRARIES(obspython ${PYTHON_LIBRARIES} )
+SWIG_LINK_LIBRARIES(obspython obs-python-shared libobs ${PYTHON_LIBRARIES} )
 
 
