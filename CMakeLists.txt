@@ -21,7 +21,7 @@ set(obs-python_SOURCES
     py-obs.h)
 
 
-add_library(obs-python MODULE
+add_library(obs-python SHARED
            ${obs-python_SOURCES})
 
 
