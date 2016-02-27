@@ -1,18 +1,21 @@
+cmake_minimum_required(VERSION 2.8)
 project(obs-python)
-
 
 
 
 set(Python_ADDITIONAL_VERSIONS 3.4)
 find_package(PythonLibs 3.4 REQUIRED)
 
+find_package(LibObs REQUIRED)
 find_package(SWIG 2 REQUIRED)
 include(${SWIG_USE_FILE})
+include(external/ObsPluginHelpers.cmake)
 
 
 include_directories(${PYTHON_INCLUDE_DIR})
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
+
 
 
 set(obs-python_SOURCES
@@ -29,6 +32,8 @@ target_link_libraries(obs-python
                       libobs
 		      ${PYTHON_LIBRARIES})
 
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=c99")
+
 add_definitions( -DSWIG_TYPE_TABLE=obspython )
 add_subdirectory(swig)
 
@@ -43,7 +48,35 @@ add_custom_target(swig-runtime
   )
      
 add_dependencies(obs-python swig-runtime)
-install_obs_plugin_with_data(obs-python data)
-install(FILES "${CMAKE_CURRENT_BINARY_DIR}/swig/_obspython.so" DESTINATION "data/obs-plugins/${PROJECT_NAME}/scripts")
-install(FILES "${CMAKE_CURRENT_BINARY_DIR}/swig/obspython.py" DESTINATION "data/obs-plugins/${PROJECT_NAME}/scripts")
+
+
+
+function(install_plugin_with_data target data_loc)
+	if(APPLE)
+		set(_bit_suffix "")
+	elseif(CMAKE_SIZEOF_VOID_P EQUAL 8)
+		set(_bit_suffix "64bit/")
+	else()
+		set(_bit_suffix "32bit/")
+	endif()
+
+	set_target_properties(${target} PROPERTIES
+		PREFIX "")
+
+	add_custom_command(TARGET ${target} POST_BUILD
+		COMMAND "${CMAKE_COMMAND}" -E copy
+			"$<TARGET_FILE_NAME:${target}>"
+			"${EXTERNAL_PLUGIN_OUTPUT_DIR}/$<CONFIGURATION>/obs-plugins/${_bit_suffix}/$<TARGET_FILE_NAME:${target}>"
+		VERBATIM)
+
+	add_custom_command(TARGET ${target} POST_BUILD
+		COMMAND "${CMAKE_COMMAND}" -E copy_directory
+			"${CMAKE_CURRENT_SOURCE_DIR}/${data_loc}"
+			"${EXTERNAL_PLUGIN_OUTPUT_DIR}/$<CONFIGURATION>/data/obs-plugins/${target}/"
+		VERBATIM)
+endfunction()
+
+
+install_plugin_with_data(obs-python data)
+
 

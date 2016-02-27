@@ -3,14 +3,14 @@
 %{
 #define SWIG_FILE_WITH_INIT
   //#define SWIG_PYTHON_SAFE_CSTRINGS
-#include "libobs/graphics/graphics.h"
-#include "libobs/obs.h"
-#include "libobs/obs-source.h"
-#include "libobs/obs-data.h"
-#include "libobs/obs-properties.h"
-#include "libobs/obs-module.h"
-#include "libobs/obs-interaction.h"
-#include "libobs/util/bmem.h"
+#include "graphics/graphics.h"
+#include "obs.h"
+#include "obs-source.h"
+#include "obs-data.h"
+#include "obs-properties.h"
+#include "obs-module.h"
+#include "obs-interaction.h"
+#include "util/bmem.h"
 %}
  
 #define EXPORT 
@@ -72,25 +72,25 @@
 %ignore obs_register_source_s(const struct obs_source_info *info, size_t size);
 %ignore obs_output_set_video(obs_output_t *output, video_t *video);
 %ignore obs_output_video(const obs_output_t *output);
-%include "libobs/graphics/graphics.h"
-%include "libobs/obs-data.h"
-%include "libobs/obs-source.h"
-%include "libobs/obs-properties.h"
-%include "libobs/obs-interaction.h"
+%include "graphics/graphics.h"
+%include "obs-data.h"
+%include "obs-source.h"
+%include "obs-properties.h"
+%include "obs-interaction.h"
 
 
  /* Declare that this returns something to free  */
 %newobject obs_module_get_config_path;
 %newobject obs_find_module_file;
-%include "libobs/obs-module.h"
+%include "obs-module.h"
 
 
-%include "libobs/util/bmem.h"
+%include "util/bmem.h"
 
  /*declare these manually because mutex + GIL = deadlocks*/
 %thread;
 void obs_enter_graphics(void); //Should only block on entering mutex
 %nothread;
-%include "libobs/obs.h"
+%include "obs.h"
 
 
