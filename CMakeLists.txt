@@ -65,7 +65,7 @@ function(install_plugin_with_data target data_loc)
 
 	add_custom_command(TARGET ${target} POST_BUILD
 		COMMAND "${CMAKE_COMMAND}" -E copy
-			"$<TARGET_FILE_NAME:${target}>"
+ 			"$<CONFIGURATION>/$<TARGET_FILE_NAME:${target}>"
 			"${EXTERNAL_PLUGIN_OUTPUT_DIR}/$<CONFIGURATION>/obs-plugins/${_bit_suffix}/$<TARGET_FILE_NAME:${target}>"
 		VERBATIM)
 

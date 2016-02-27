@@ -26,6 +26,10 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 #include "obs-python-module.h"
 
 
+#if defined ( WIN32 )
+#define __func__ __FUNCTION__
+#endif
+
 /*Object Data*/
 typedef struct {
     PyObject_HEAD
@@ -1449,7 +1453,7 @@ static void py_to_obs_source_info(py_source* py_info)
     info->video_render     = py_source_video_render;
     info->filter_video     = py_source_filter_video;
     info->filter_audio     = py_source_filter_audio;
-    info->enum_sources     = py_source_enum_sources;
+//    info->enum_sources     = py_source_enum_sources;
     info->save             = py_source_save;
     info->load             = py_source_load;
     info->mouse_click      = py_source_mouse_click;

@@ -68,6 +68,9 @@
  /* Used to free when using %newobject */
 %typemap(newfree) char * "bfree($1);";
 
+%ignore obs_module_text;
+%ignore obs_current_module;
+%ignore obs_source_info;
 
 %ignore obs_register_source_s(const struct obs_source_info *info, size_t size);
 %ignore obs_output_set_video(obs_output_t *output, video_t *video);
