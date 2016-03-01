@@ -3,6 +3,8 @@
 %{
 #define SWIG_FILE_WITH_INIT
   //#define SWIG_PYTHON_SAFE_CSTRINGS
+#define PDEPRECATED_START 
+#define DEPRECATED_END
 #include "graphics/graphics.h"
 #include "obs.h"
 #include "obs-source.h"
@@ -13,6 +15,8 @@
 #include "util/bmem.h"
 %}
  
+#define DEPRECATED_START 
+#define DEPRECATED_END
 #define EXPORT 
 
 %include "stdint.i"
@@ -69,7 +73,6 @@
 %typemap(newfree) char * "bfree($1);";
 
 %ignore obs_module_text;
-%ignore obs_current_module;
 %ignore obs_source_info;
 
 %ignore obs_register_source_s(const struct obs_source_info *info, size_t size);

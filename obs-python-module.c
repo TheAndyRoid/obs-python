@@ -29,9 +29,28 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 #include "py-obs.h"
 
 
-#if defined ( WIN32 )
-#define __func__ __FUNCTION__
+
+// Check windows
+#if _WIN32 || _WIN64
+  #if _WIN64
+    #define PLUGINARCH "64bit"
+  #else
+    #define PLUGINARCH "32bit"
+  #endif
 #endif
+
+// Check GCC
+#if __GNUC__
+  #if __x86_64__ || __ppc64__
+    #define PLUGINARCH "/64bit"
+  #else
+    #define PLUGINARCH "/32bit"
+  #endif
+#endif
+
+
+
+
 
 bool obs_module_load()
 {
@@ -68,13 +87,25 @@ bool obs_module_load()
     bool ret = false;
 
     char script[] = "/scripts";
+    char arch[] = PLUGINARCH;
     const char *data_path = obs_get_module_data_path(obs_current_module());
     char *scripts_path = bzalloc(strlen(data_path)+strlen(script));
+    
     strcpy(scripts_path,data_path);
     strcat(scripts_path,script);
 
 
     //Add the scripts path to env
+    add_to_python_path(scripts_path);
+
+    bfree(scripts_path);
+    
+
+    scripts_path = bzalloc(strlen(data_path)+strlen(arch));
+    strcpy(scripts_path,data_path);
+    strcat(scripts_path,arch);
+
+    //Add the plugin obspython arch path to env
     add_to_python_path(scripts_path);
 
 
