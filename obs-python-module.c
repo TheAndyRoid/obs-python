@@ -33,9 +33,9 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 // Check windows
 #if _WIN32 || _WIN64
   #if _WIN64
-    #define PLUGINARCH "64bit"
+    #define PLUGINARCH "/64bit"
   #else
-    #define PLUGINARCH "32bit"
+    #define PLUGINARCH "/32bit"
   #endif
 #endif
 
@@ -73,8 +73,8 @@ bool obs_module_load()
     PyRun_SimpleString("import sys");
     PyRun_SimpleString("os.environ['PYTHONUNBUFFERED'] = '1'");
     /* TODO  change to non platform specific */
-    PyRun_SimpleString("sys.stdout = open('/dev/shm/stdOut.txt','w',1)");
-    PyRun_SimpleString("sys.stderr = open('/dev/shm/stdErr.txt','w',1)");
+    PyRun_SimpleString("sys.stdout = open('./stdOut.txt','w',1)");
+    PyRun_SimpleString("sys.stderr = open('./stdErr.txt','w',1)");
     PyRun_SimpleString("print(sys.version)");
 
     

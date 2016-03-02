@@ -88,6 +88,7 @@
  /* Declare that this returns something to free  */
 %newobject obs_module_get_config_path;
 %newobject obs_find_module_file;
+%ignore obs_current_module;
 %include "obs-module.h"
 
 

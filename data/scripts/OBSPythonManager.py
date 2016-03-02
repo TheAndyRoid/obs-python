@@ -165,8 +165,8 @@ def obs_module_load():
 
     #log to a file
     os.environ['PYTHONUNBUFFERED'] = '1'
-    sys.stdout = open('/dev/shm/stdOut.txt','w',1)
-    sys.stderr = open('/dev/shm/stdErr.txt','w',1)
+    sys.stdout = open('./stdOut.txt','w',1)
+    sys.stderr = open('./stdErr.txt','w',1)
     print(sys.version)
 
     #load python manager

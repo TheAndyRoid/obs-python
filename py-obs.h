@@ -78,11 +78,40 @@ py_obs_register_source(PyObject* self, PyObject* args)
     Py_RETURN_NONE;
 }
 
+static PyObject*
+py_obs_current_module(PyObject* self, PyObject* args)
+{
+	UNUSED_PARAMETER(self);
+	UNUSED_PARAMETER(args);
+	PyObject* obj;
+
+	int SWIG_result = SWIG_OK;
+
+	//Swig types
+	const char* SWIG_str_obs_module_t = "obs_module_t *";
+
+	//Python
+	PyObject* py_swig_obs_module_pointer = NULL;
+	SWIG_result = libobs_to_py_swig(SWIG_str_obs_module_t, obs_module_pointer, 0, &py_swig_obs_module_pointer);
+
+	if (!SWIG_IsOK(SWIG_result)) {
+		blog(LOG_INFO,
+			"%s:l%i \"SWIG Failed to make required python object: '%s' \"",
+			__func__,
+			__LINE__,
+			SWIG_str_obs_module_t);
+		goto fail;
+	}
+fail:
+	return py_swig_obs_module_pointer;
+}
+
 
 
 static PyMethodDef py_obs_methods[] = {
     {"blog",py_obs_blog,METH_VARARGS,"Writes to the obs log"},
     {"obs_register_source",py_obs_register_source,METH_VARARGS,"Registers a new source with obs."},
+	{"obs_current_module",py_obs_current_module,METH_NOARGS,"Helper function to get the current module pointer"},
     { NULL, NULL, 0, NULL }
 };
 
