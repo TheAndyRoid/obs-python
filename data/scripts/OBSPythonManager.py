@@ -1,9 +1,7 @@
 
 import obspython as libobs
-#import pygame
 import os,traceback,sys
 import json
-from random import randint
 from importlib.machinery import SourceFileLoader
 
 
@@ -17,6 +15,7 @@ class OBSPythonManager():
         self.SetColour(255,255,255,255)
         self.multi = 1
         self.rand = 0
+        self.liveSource = False
         LEVELS =1  
 
         
@@ -47,6 +46,8 @@ class OBSPythonManager():
         pass
     def get_properties(self):
         print("PythonManager get_properties")
+        self.liveSource = True
+
         self.props = libobs.obs_properties_create()
 
         #need to load from the save file or new python managers will wipe our scripts
@@ -68,18 +69,59 @@ class OBSPythonManager():
 
     def update(self,data):
         #Called when a property is changed.
-
+        print("PythonManager Update")
         #should probably check that script can be loaded and remove it if it cant
         #should still work though
-        print("PythonManager Update")
-        filename = "PythonScripts.json"
-        parsed = json.loads(libobs.obs_data_get_json(data))
-        save_json_config_file(parsed,filename)        
         return
 
     def save(self,data):
         print("PythonManager Save")
+
+        if self.liveSource:
+            filename = "PythonScripts.json"
+            scriptFiles = 'ScriptFiles'
+            parsed = json.loads(libobs.obs_data_get_json(data))
+
+            savedArray = parsed[scriptFiles]
+            currentArray = open_json_config_file(filename)[scriptFiles]
+            
+            print (currentArray)
+            toRemove = []
+            toAdd = []
+            
+            savedDict = set()
+            currentDict = set()
+            
+            for v in currentArray:
+                print(v)
+                currentDict.add(v['value'])
+
+            for v in savedArray:
+                savedDict.add(v['value'])
+                        
+            for k in savedDict:
+                print(k)
+                if k not in currentDict:
+                    toAdd.append(k)
+
+            for k in currentDict:
+                print(k)
+                if k not in savedDict:
+                    toRemove.append(k)
+                    
+            print (toRemove)
+
+            for script in toAdd:
+                run_register(script)
+
+            save_json_config_file(parsed,filename)        
+            self.liveSource = False
+            
         return
+
+
+
+
 
     @staticmethod
     def get_name():

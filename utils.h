@@ -63,8 +63,7 @@ static void add_to_python_path(char* cstr)
     PyObject* path = PySys_GetObject("path");
     pyHasError();
 
-    while(strstr(cstr,"\\") != NULL) {
-    }
+    
 
     blog(LOG_INFO, "PATH: %s",cstr);
     PyList_Append(path, PyUnicode_FromString(cstr));
