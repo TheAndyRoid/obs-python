@@ -83,7 +83,10 @@ class OBSPythonManager():
             parsed = json.loads(libobs.obs_data_get_json(data))
 
             savedArray = parsed[scriptFiles]
-            currentArray = open_json_config_file(filename)[scriptFiles]
+            try:
+                currentArray = open_json_config_file(filename)[scriptFiles]
+            except:
+                currentArray = []
             
             print (currentArray)
             toRemove = []
