@@ -24,6 +24,11 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 #include "swig/swigpyrun.h"
 
 
+#if defined ( WIN32 )
+#define __func__ __FUNCTION__
+#endif
+
+
 static bool pyHasError()
 {
     if (PyErr_Occurred()) {
