@@ -1,4 +1,3 @@
-
 import obspython as libobs
 import os,traceback,sys
 import json
@@ -183,9 +182,9 @@ def save_json_config_file(data,filename):
     fd.close()
 
 def run_register(scriptFile):
-    scriptName = os.path.basename(scriptFile)
-    script = SourceFileLoader(scriptName, scriptFile).load_module()
     try:
+        scriptName = os.path.basename(scriptFile)
+        script = SourceFileLoader(scriptName, scriptFile).load_module()
         script.register()
         print ("Loaded '%s' from '%s'"%(scriptName,scriptFile))
     except Exception as e:

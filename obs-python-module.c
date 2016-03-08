@@ -56,6 +56,14 @@ bool obs_module_load()
 {
     blog(LOG_INFO, "obs_module_load");
 
+    if(!is_python_installed()){
+      blog(LOG_ERROR,
+	   "%s:l%i \"Error Could not detect python installation aborting\"",
+	   __func__,
+	   __LINE__
+	   );      
+        return false;
+    }
 
     Py_Initialize();
     PyEval_InitThreads();

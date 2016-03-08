@@ -33,16 +33,16 @@ static bool pyHasError()
     return false;
 }
 
-static bool isPyObjectBaseClass(PyObject* obj, const char* type )
+static bool isPyObjectBaseClass(PyObject *obj, const char *type )
 {
 
-    PyObject* tuple = obj->ob_type->tp_bases;
+    PyObject *tuple = obj->ob_type->tp_bases;
     Py_ssize_t len = PyTuple_Size(tuple);
     for (int i = 0; i < len; i++) {
-        PyObject* base = PyTuple_GetItem(tuple, i);
-        PyObject* name = PyObject_GetAttrString(base, "__name__");
+        PyObject *base = PyTuple_GetItem(tuple, i);
+        PyObject *name = PyObject_GetAttrString(base, "__name__");
         pyHasError();
-        char* cname = NULL;
+        char *cname = NULL;
         if (name != NULL) {
             cname = PyUnicode_AsUTF8(obj);
         }
@@ -83,33 +83,96 @@ static void add_enum_to_dict(PyObject *tp_dict, char ** names){
 }
 
 //must be used when GIL lock is held
-static inline int  py_swig_to_libobs(const char* SWIG_type_str, PyObject* py_in, void* libobs_out){
+static inline int  py_swig_to_libobs(const char *SWIG_type_str, PyObject *py_in,
+                                     void *libobs_out)
+{
 
-  swig_type_info* SWIG_type_info = SWIG_TypeQuery(SWIG_type_str);
-    
-  if (SWIG_type_info == NULL){
-    blog(LOG_INFO, "SWIG could not find type : %s",SWIG_type_str);
-    return SWIG_ERROR ;
-  }
-    
-  return SWIG_ConvertPtr(py_in, libobs_out, SWIG_type_info, 0);
+    swig_type_info *SWIG_type_info = SWIG_TypeQuery(SWIG_type_str);
+
+    if (SWIG_type_info == NULL) {
+        blog(LOG_INFO, "SWIG could not find type : %s",SWIG_type_str);
+        return SWIG_ERROR ;
+    }
+
+    return SWIG_ConvertPtr(py_in, libobs_out, SWIG_type_info, 0);
 }
 
-static inline int libobs_to_py_swig(const char* SWIG_type_str, void* libobs_in, int ownership, PyObject** py_out){
 
-  swig_type_info* SWIG_type_info = SWIG_TypeQuery(SWIG_type_str);
-  
-  if (SWIG_type_info == NULL){
-    blog(LOG_INFO, "SWIG could not find type : %s",SWIG_type_str);
-    return SWIG_ERROR;
-  }
+static inline int libobs_to_py_swig(const char *SWIG_type_str, void *libobs_in,
+                                    int ownership, PyObject **py_out)
+{
 
-  *py_out = SWIG_NewPointerObj(libobs_in, SWIG_type_info, ownership);
+    swig_type_info *SWIG_type_info = SWIG_TypeQuery(SWIG_type_str);
 
-  if(*py_out == Py_None){
-    return SWIG_ERROR;
-  }
-  return SWIG_OK;
+    if (SWIG_type_info == NULL) {
+        blog(LOG_INFO, "SWIG could not find type : %s",SWIG_type_str);
+        return SWIG_ERROR;
+    }
+
+    *py_out = SWIG_NewPointerObj(libobs_in, SWIG_type_info, ownership);
+
+    if(*py_out == Py_None) {
+        return SWIG_ERROR;
+    }
+    return SWIG_OK;
 }
+
+
+static bool is_python_installed()
+{
+
+    if(system("python -V") == 0){
+      return true;
+    }
+
+    char *pypath = getenv("PYTHONPATH");
+    if (pypath == NULL) {
+        blog(LOG_INFO,
+             "%s:l%i \"Did not find 'PYTHONPATH' in environment searching trying 'PYTHONHOME'\"",
+             __func__,
+             __LINE__
+            );
+    } else {
+      return true;
+    }
+
+    char *pyhome = getenv("PYTHONHOME");
+    if (pyhome == NULL) {
+        blog(LOG_INFO,
+             "%s:l%i \"Did not find 'PYTHONHOME' in environment searching trying 'PATH'\"",
+             __func__,
+             __LINE__
+            );
+    } else {
+      return true;
+    }
+
+    char *path = getenv("PATH");
+    if (path) {
+        char *python = strstr(path, "Python");
+        if (python) {
+            return true;
+        } else {
+            blog(LOG_INFO,
+                 "%s:l%i \"Did not find python in 'PATH' environment variable.\"",
+                 __func__,
+                 __LINE__
+                );
+        }
+    } else {
+        blog(LOG_INFO,
+             "%s:l%i \"Could not get 'PATH' environment variable.\"",
+             __func__,
+             __LINE__
+            );
+    }
+
+
+    return false;
+}
+
+
+
+
 
 
