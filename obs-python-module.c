@@ -25,13 +25,18 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 #include <obs-ui.h>
 #include <util/platform.h>
 
+
 #include "utils.h"
 #include "py-obs.h"
 
 
+#define STR_HELPER(x) #x
+#define STR(x) STR_HELPER(x)
+
 
 // Check windows
 #if _WIN32 || _WIN64
+#define PYTHON_SHARED_LIBRARY_NAME "python" STR(PY_MAJOR_VERSION)".dll"
   #if _WIN64
     #define PLUGINARCH "/64bit"
   #else
@@ -39,8 +44,12 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
   #endif
 #endif
 
+
+
 // Check GCC
 #if __GNUC__
+#define PYTHON_SHARED_LIBRARY_NAME "libpython" STR(PY_MAJOR_VERSION) "." STR(PY_MINOR_VERSION) "m.so"
+
   #if __x86_64__ || __ppc64__
     #define PLUGINARCH "/64bit"
   #else
@@ -51,19 +60,33 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 
 
-
 bool obs_module_load()
 {
     blog(LOG_INFO, "obs_module_load");
 
-    if(!is_python_installed()){
-      blog(LOG_ERROR,
-	   "%s:l%i \"Error Could not detect python installation aborting\"",
+    if(!is_python_on_path()){
+      blog(LOG_WARNING,
+	   "%s:l%i \"Warning could not detect python environment variables attempting to load shared library anyway\"",
 	   __func__,
 	   __LINE__
 	   );      
-        return false;
     }
+
+    // Manually force python to be loaded
+#if __GNUC__
+    if(!os_dlopen_global(PYTHON_SHARED_LIBRARY_NAME)){
+#else
+      if(!os_dlopen(PYTHON_SHARED_LIBRARY_NAME)){
+#endif
+	blog(LOG_ERROR,
+	    "%s:l%i \"Error Could not load python shared library %s aborting!\"",
+	    __func__,
+	    __LINE__,
+	    PYTHON_SHARED_LIBRARY_NAME
+	    );      
+	return false;
+    }
+
 
     Py_Initialize();
     PyEval_InitThreads();

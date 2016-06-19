@@ -24,8 +24,13 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 #include "swig/swigpyrun.h"
 
 
+#include "util/darray.h"
+#include "util/dstr.h"
+
 #if defined ( WIN32 )
 #define __func__ __FUNCTION__
+#else
+#include <dlfcn.h>
 #endif
 
 
@@ -123,16 +128,12 @@ static inline int libobs_to_py_swig(const char *SWIG_type_str, void *libobs_in,
 }
 
 
-static bool is_python_installed()
+static bool is_python_on_path()
 {
-
-    if(system("python -V") == 0){
-      return true;
-    }
-
+  
     char *pypath = getenv("PYTHONPATH");
     if (pypath == NULL) {
-        blog(LOG_INFO,
+        blog(LOG_WARNING,
              "%s:l%i \"Did not find 'PYTHONPATH' in environment searching trying 'PYTHONHOME'\"",
              __func__,
              __LINE__
@@ -143,7 +144,7 @@ static bool is_python_installed()
 
     char *pyhome = getenv("PYTHONHOME");
     if (pyhome == NULL) {
-        blog(LOG_INFO,
+        blog(LOG_WARNING,
              "%s:l%i \"Did not find 'PYTHONHOME' in environment searching trying 'PATH'\"",
              __func__,
              __LINE__
@@ -158,26 +159,40 @@ static bool is_python_installed()
         if (python) {
             return true;
         } else {
-            blog(LOG_INFO,
+            blog(LOG_WARNING,
                  "%s:l%i \"Did not find python in 'PATH' environment variable.\"",
                  __func__,
                  __LINE__
                 );
         }
     } else {
-        blog(LOG_INFO,
+        blog(LOG_WARNING,
              "%s:l%i \"Could not get 'PATH' environment variable.\"",
              __func__,
              __LINE__
             );
     }
-
-
     return false;
 }
 
+#if defined ( __GNUC__ )
+void *os_dlopen_global(const char *path)
+{
+  struct dstr dylib_name;
 
+  if (!path)
+    return NULL;
 
+  dstr_init_copy(&dylib_name, path);
+  if (!dstr_find(&dylib_name, ".so"))
+    dstr_cat(&dylib_name, ".so");
 
+  void *res = dlopen(dylib_name.array, RTLD_LAZY | RTLD_GLOBAL);
+  if (!res)
+    blog(LOG_ERROR, "os_dlopen(%s->%s): %s\n",
+	 path, dylib_name.array, dlerror());
 
-
+  dstr_free(&dylib_name);
+  return res;
+}
+#endif
