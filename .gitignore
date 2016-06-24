@@ -2,3 +2,14 @@
 /data/scripts/libobs.py
 /swig/libobs_wrap.c
 *.pyc
+
+build/
+builds/
+build32/
+build64/
+debug/
+debug32/
+debug64/
+release/
+release32/
+release64/
